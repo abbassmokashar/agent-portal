@@ -51,7 +51,7 @@ agent portal/
 ├── js/config.js          # <-- put your Worker URL here
 ├── js/app.js             # The whole front-end app
 ├── assets/
-│   ├── img/favicon.svg
+│   ├── img/favicon.png   # Same favicon as aus.swiss
 │   ├── brochures/        # Sample downloadable PDFs
 │   └── media/            # Placeholder media (replace with real assets)
 ├── worker/               # Cloudflare Worker backend
