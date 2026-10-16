@@ -21,8 +21,15 @@ const PBKDF2_ITERATIONS = 100000;
 const SESSION_TTL_DAYS = 30;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const BACKUP_PREFIX = 'backup:';
+const BACKUP_KEEP = 40; // how many backups to retain (newest kept)
 
 export default {
+  // Automatic backup: runs on the schedule defined in wrangler.toml ([triggers]).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(createBackup(env, { createdBy: 'automatic', kind: 'auto' }));
+  },
+
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
     const cors = corsHeaders(env, origin);
@@ -84,6 +91,8 @@ async function route(request, env, url) {
   const fileMatch = path.match(/^\/api\/files\/([A-Za-z0-9_-]+)$/);
   if (fileMatch && method === 'GET') return downloadFile(env, fileMatch[1]);
 
+  const adminFileMatch = path.match(/^\/api\/admin\/files\/([A-Za-z0-9_-]+)$/);
+
   if (path === '/api/applications' && method === 'POST') return createApplication(request, env, user);
 
   // ---- Admin only ----
@@ -99,10 +108,19 @@ async function route(request, env, url) {
     if (path === '/api/admin/content' && method === 'PUT') return putContent(request, env, user);
 
     if (path === '/api/admin/files' && method === 'POST') return uploadFile(request, env, user);
-    if (fileMatch && method === 'DELETE') return deleteFile(env, fileMatch[1], user);
+    if (adminFileMatch && method === 'PATCH') return updateFileMeta(request, env, adminFileMatch[1]);
+    if (adminFileMatch && method === 'DELETE') return deleteFile(env, adminFileMatch[1], user);
 
     if (path === '/api/admin/applications' && method === 'GET') return listApplications(env);
     if (path === '/api/admin/applications' && method === 'PATCH') return updateApplication(request, env);
+
+    // ---- Superadmin only: backups ----
+    if (path === '/api/admin/backups' && method === 'GET') return listBackups(env, user);
+    if (path === '/api/admin/backups' && method === 'POST') return manualBackup(env, user);
+    if (path === '/api/admin/backups' && method === 'DELETE') return deleteBackup(env, url, user);
+    if (path === '/api/admin/backups/restore' && method === 'POST') return restoreBackup(request, env, user);
+    const backupMatch = path.match(/^\/api\/admin\/backups\/([A-Za-z0-9_-]+)$/);
+    if (backupMatch && method === 'GET') return downloadBackup(env, backupMatch[1], user);
   }
 
   return json({ error: 'not_found', path }, 404);
@@ -648,6 +666,13 @@ async function getContent(env) {
 async function putContent(request, env, admin) {
   const body = await request.json().catch(() => ({}));
   if (!body || typeof body.content !== 'object') return json({ error: 'invalid_content' }, 400);
+
+  // Snapshot the current state before overwriting, so the superadmin can roll back.
+  const existing = await env.DB.prepare('SELECT value FROM content WHERE key = ?').bind('portal').first();
+  if (existing) {
+    try { await createBackup(env, { createdBy: admin.username, kind: 'pre-change' }); } catch {}
+  }
+
   await env.DB.prepare(
     'INSERT INTO content (key, value, updated_at, updated_by) VALUES (?,?,?,?) ' +
       'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by'
@@ -702,7 +727,20 @@ async function uploadFile(request, env, admin) {
   )
     .bind(id, name, category, contentType, buf.byteLength, admin.username, nowIso())
     .run();
-  return json({ ok: true, data: { id, url: `/api/files/${id}`, name, category } });
+  return json({ ok: true, data: { id, url: `/api/files/${id}`, name, category, contentType, size: buf.byteLength } });
+}
+
+// Rename or re-categorise an uploaded file (does not change its bytes).
+async function updateFileMeta(request, env, id) {
+  const body = await request.json().catch(() => ({}));
+  const name = body.name != null ? String(body.name).trim() : null;
+  const category = body.category != null ? String(body.category).trim() : null;
+  if (!name && !category) return json({ error: 'nothing_to_update' }, 400);
+  const file = await env.DB.prepare('SELECT id, name FROM files WHERE id = ?').bind(id).first();
+  if (!file) return json({ error: 'not_found' }, 404);
+  if (name) await env.DB.prepare('UPDATE files SET name = ? WHERE id = ?').bind(name, id).run();
+  if (category) await env.DB.prepare('UPDATE files SET category = ? WHERE id = ?').bind(category, id).run();
+  return json({ ok: true });
 }
 
 async function downloadFile(env, id) {
@@ -766,6 +804,174 @@ async function updateApplication(request, env) {
   if (!id) return json({ error: 'missing_id' }, 400);
   await env.DB.prepare('UPDATE applications SET status = ? WHERE id = ?').bind(status, id).run();
   return json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
+//  Backups (superadmin) — snapshot content, applications, files and roster to KV
+// ---------------------------------------------------------------------------
+function backupKey(id) {
+  return BACKUP_PREFIX + id;
+}
+
+async function snapshotAll(env) {
+  const contentRow = await env.DB.prepare('SELECT value FROM content WHERE key = ?').bind('portal').first();
+  // Until an admin saves, there is no content row — agents see DEFAULT_CONTENT,
+  // so that is what a backup must capture (otherwise a fresh backup is empty).
+  let content = DEFAULT_CONTENT;
+  if (contentRow) {
+    try { content = JSON.parse(contentRow.value); } catch { content = DEFAULT_CONTENT; }
+  }
+  const applications = (await env.DB.prepare('SELECT * FROM applications ORDER BY created_at').all()).results || [];
+  const files = (await env.DB.prepare('SELECT * FROM files ORDER BY created_at').all()).results || [];
+  const users = (
+    await env.DB.prepare(
+      'SELECT username, name, email, phone, agency, country, is_admin, is_superadmin, status, totp_enabled, created_at, last_login FROM users ORDER BY created_at'
+    ).all()
+  ).results || [];
+  return { content, applications, files, users };
+}
+
+async function createBackup(env, { createdBy = 'system', kind = 'auto' } = {}) {
+  const id = new Date().toISOString().replace(/[:.]/g, '-');
+  const snap = await snapshotAll(env);
+  const payload = {
+    version: 1,
+    id,
+    createdAt: nowIso(),
+    createdBy,
+    kind,
+    content: snap.content,
+    applications: snap.applications,
+    files: snap.files,
+    users: snap.users,
+  };
+  const body = JSON.stringify(payload);
+  const contentCount = snap.content
+    ? Object.values(snap.content).reduce((n, arr) => n + (Array.isArray(arr) ? arr.length : 0), 0)
+    : 0;
+  await env.FILES.put(backupKey(id), body, {
+    metadata: {
+      id,
+      createdAt: payload.createdAt,
+      createdBy,
+      kind,
+      bytes: body.length,
+      counts: {
+        content: contentCount,
+        applications: snap.applications.length,
+        files: snap.files.length,
+        users: snap.users.length,
+      },
+    },
+  });
+  await pruneBackups(env);
+  return { id, createdAt: payload.createdAt, createdBy, kind, bytes: body.length };
+}
+
+async function pruneBackups(env, keep = BACKUP_KEEP) {
+  let cursor;
+  const names = [];
+  do {
+    const res = await env.FILES.list({ prefix: BACKUP_PREFIX, cursor });
+    for (const k of res.keys) names.push(k.name);
+    cursor = res.list_complete ? null : res.cursor;
+  } while (cursor);
+  names.sort().reverse(); // ids are ISO timestamps, so lexical reverse = newest first
+  for (const name of names.slice(keep)) await env.FILES.delete(name);
+}
+
+function backupMeta(id, meta) {
+  return {
+    id: (meta && meta.id) || id,
+    createdAt: (meta && meta.createdAt) || null,
+    createdBy: (meta && meta.createdBy) || '',
+    kind: (meta && meta.kind) || 'auto',
+    bytes: (meta && meta.bytes) || 0,
+    counts: (meta && meta.counts) || null,
+  };
+}
+
+async function listBackups(env, user) {
+  if (!user.is_superadmin) return json({ error: 'forbidden' }, 403);
+  let cursor;
+  const data = [];
+  do {
+    const res = await env.FILES.list({ prefix: BACKUP_PREFIX, cursor });
+    for (const k of res.keys) data.push(backupMeta(k.name.slice(BACKUP_PREFIX.length), k.metadata));
+    cursor = res.list_complete ? null : res.cursor;
+  } while (cursor);
+  data.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  return json({ ok: true, data, keep: BACKUP_KEEP });
+}
+
+async function manualBackup(env, user) {
+  if (!user.is_superadmin) return json({ error: 'forbidden' }, 403);
+  const info = await createBackup(env, { createdBy: user.username, kind: 'manual' });
+  return json({ ok: true, data: info });
+}
+
+async function deleteBackup(env, url, user) {
+  if (!user.is_superadmin) return json({ error: 'forbidden' }, 403);
+  const id = url.searchParams.get('id') || '';
+  if (!id) return json({ error: 'missing_id' }, 400);
+  await env.FILES.delete(backupKey(id));
+  return json({ ok: true });
+}
+
+async function downloadBackup(env, id, user) {
+  if (!user.is_superadmin) return json({ error: 'forbidden' }, 403);
+  const raw = await env.FILES.get(backupKey(id));
+  if (!raw) return json({ error: 'not_found' }, 404);
+  return new Response(raw, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="aus-portal-backup-${id}.json"`,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+async function restoreBackup(request, env, user) {
+  if (!user.is_superadmin) return json({ error: 'forbidden' }, 403);
+  const body = await request.json().catch(() => ({}));
+  const id = String(body.id || '');
+  if (!id) return json({ error: 'missing_id' }, 400);
+  const raw = await env.FILES.get(backupKey(id));
+  if (!raw) return json({ error: 'not_found' }, 404);
+
+  let snap;
+  try { snap = JSON.parse(raw); } catch { return json({ error: 'corrupt_backup' }, 400); }
+
+  const scope = Array.isArray(body.scope) && body.scope.length ? body.scope : ['content'];
+
+  // Snapshot the current state first, so a restore is itself reversible.
+  await createBackup(env, { createdBy: user.username, kind: 'pre-restore' });
+
+  const restored = [];
+  if (scope.includes('content') && snap.content) {
+    await env.DB.prepare(
+      'INSERT INTO content (key, value, updated_at, updated_by) VALUES (?,?,?,?) ' +
+        'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by'
+    )
+      .bind('portal', JSON.stringify(snap.content), nowIso(), user.username)
+      .run();
+    restored.push('content');
+  }
+  if (scope.includes('applications') && Array.isArray(snap.applications)) {
+    await env.DB.prepare('DELETE FROM applications').run();
+    for (const a of snap.applications) {
+      await env.DB.prepare(
+        'INSERT INTO applications (id, agent, student_name, student_email, student_phone, programme, intake, nationality, notes, status, created_at) ' +
+          'VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+      )
+        .bind(a.id, a.agent, a.student_name, a.student_email, a.student_phone, a.programme, a.intake, a.nationality, a.notes, a.status, a.created_at)
+        .run();
+    }
+    restored.push('applications');
+  }
+  if (!restored.length) return json({ error: 'nothing_restored' }, 400);
+  return json({ ok: true, restored, from: id });
 }
 
 // ---------------------------------------------------------------------------

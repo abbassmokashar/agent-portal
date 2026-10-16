@@ -39,7 +39,11 @@ creates each agent's credentials in the Admin view.
 - **Contracts** — representation & enrolment templates
 - **Media library** — photos, articles and marketing assets
 - **Applications** — agents submit student applications; admins track status
-- **Editable content** — admins update news/offers/resources without touching code
+- **Content manager** — admins upload and edit brochures, offers and images from
+  the portal (no code, no JSON required)
+- **Backups (superadmin)** — an automatic daily snapshot to KV plus a snapshot
+  before every content change; restore any point in time with one click, or
+  download a backup as JSON for off-site storage
 - **Sessions & security** — view and revoke active devices, change password
 
 ## Project structure
@@ -141,6 +145,30 @@ The first account created via `/api/auth/bootstrap` is a **superadmin**:
 - **Protected** — a superadmin account cannot be deleted or demoted, including by
   itself.
 
+### Content management
+
+Admins manage **brochures, offers and images** directly from the Admin view
+(**Content → Manage**): upload a file, fill in the details, and it publishes to
+all agents immediately. Existing entries can be edited or removed. Under the
+hood this writes to the portal content blob and stores uploaded files in the
+worker's KV namespace. An **Advanced → Edit JSON** option remains for bulk edits.
+
+### Backups (superadmin)
+
+Backups are automatic and manual:
+
+- **Automatic** — a snapshot is written to KV every day (see `[triggers] crons` in
+  `wrangler.toml`), and another is taken automatically **before every content
+  change**. The newest 40 are kept; older ones are pruned.
+- **Manual** — click **Back up now** in the Admin view.
+- **Restore** — pick any snapshot and restore **content**, **applications**, or
+  both. The current state is snapshotted first, so a restore can itself be undone.
+- **Download** — export any snapshot as a JSON file for off-site storage.
+
+A backup captures the portal content, applications, file metadata and the account
+roster (the roster is for reference only — restoring accounts is intentionally not
+supported, to avoid lock-outs).
+
 ### Agent account rules
 
 When adding an account, **full name, email, phone and country are required**, plus
@@ -201,9 +229,13 @@ https://abbassmokashar.github.io/agent-portal/
 | `/api/applications` | POST | Submit a student application |
 | `/api/admin/agents` | GET / POST / DELETE | Manage agents |
 | `/api/admin/agents/password` | POST | Reset an agent's password |
-| `/api/admin/content` | PUT | Save portal content |
-| `/api/admin/files` | POST / DELETE | Upload / delete gated files |
+| `/api/admin/content` | PUT | Save portal content (auto-snapshots the previous version) |
+| `/api/admin/files` | POST | Upload a gated file (brochures/offers/images) |
+| `/api/admin/files/:id` | PATCH / DELETE | Rename/re-categorise or delete a file |
 | `/api/admin/applications` | GET / PATCH | List / update applications |
+| `/api/admin/backups` | GET / POST / DELETE | List / create / delete backups (superadmin) |
+| `/api/admin/backups/:id` | GET | Download a backup as JSON (superadmin) |
+| `/api/admin/backups/restore` | POST | Restore a backup (superadmin) |
 
 ## Security notes
 

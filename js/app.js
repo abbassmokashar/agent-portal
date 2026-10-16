@@ -119,6 +119,16 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtDate = (d) => { if (!d) return ''; const x = new Date(d); return isNaN(x) ? d : x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
 const initials = (n) => (n || '?').trim().charAt(0).toUpperCase();
+const uid = (prefix) => (prefix || 'x') + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
+const today = () => new Date().toISOString().slice(0, 10);
+function fileSize(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let n = Number(bytes) || 0;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return (i === 0 ? n : n.toFixed(1)) + ' ' + units[i];
+}
 
 function toast(msg, kind = 'ok') {
   const wrap = $('toastWrap');
@@ -402,6 +412,10 @@ function friendlyError(e) {
     forbidden: 'You do not have permission to do that.',
     protected: 'That account is protected and cannot be changed.',
     cannot_delete_self: 'You cannot remove your own account.',
+    file_too_large: 'That file is larger than the 25 MB limit.',
+    missing_file: 'Choose a file to upload.',
+    corrupt_backup: 'That backup file is unreadable.',
+    nothing_restored: 'There was nothing to restore from that backup.',
     not_found: 'Not found.',
     unauthorized: 'Your session expired. Please sign in again.',
   };
@@ -973,20 +987,38 @@ function renderAdmin(v) {
           <div id="adminApps">${DEMO_MODE ? emptyInline('Applications appear here once the worker is connected.') : emptyInline('Loading…')}</div>
         </div>
         <div>
-          <div class="section-head"><div><h2>Content</h2><p>Edit the portal's news, offers and resources.</p></div>
-            <button class="btn btn-outline btn-sm" onclick="editContentPrompt()"><i class="fa-solid fa-pen"></i><span>Edit content</span></button></div>
+          <div class="section-head"><div><h2>Content</h2><p>Upload and edit brochures, offers and images.</p></div></div>
           <div class="card">
-            <div class="sec-row"><div class="sec-info"><h4>Upload a gated file</h4><p>Brochures, contracts or media served privately through the worker.</p></div></div>
-            <div class="field-row" style="margin-top:14px">
-              <div class="field"><label>Category</label><select id="upCategory"><option value="brochures">Brochure</option><option value="contracts">Contract</option><option value="media">Media</option></select></div>
-              <div class="field"><label>File</label><input id="upFile" type="file"></div>
+            ${contentRow('brochures', 'Brochures', 'PDFs agents can download and share.', 'fa-file-pdf')}
+            ${contentRow('offers', 'Offers', 'Promotions shown to your agents.', 'fa-gift')}
+            ${contentRow('media', 'Images & media', 'Marketing assets for agents.', 'fa-image')}
+            <div class="sec-row">
+              <div class="sec-info"><h4>Advanced</h4><p>Edit the full portal content as JSON.</p></div>
+              <button class="btn btn-ghost btn-sm" onclick="editContentPrompt()"><i class="fa-solid fa-code"></i><span>Edit JSON</span></button>
             </div>
-            <button class="btn btn-navy btn-sm" onclick="uploadFile()"><i class="fa-solid fa-upload"></i><span>Upload to worker</span></button>
           </div>
         </div>
       </div>
+
+      ${(state.user && state.user.isSuperAdmin) ? `
+      <div>
+        <div class="section-head">
+          <div><h2>Backups</h2><p>Automatic daily snapshots — restore any point in time.</p></div>
+          <button class="btn btn-primary btn-sm" onclick="backupNow()"><i class="fa-solid fa-cloud-arrow-up"></i><span>Back up now</span></button>
+        </div>
+        <div id="backupList">${DEMO_MODE ? emptyInline('Backups require the Cloudflare worker.') : emptyInline('Loading backups…')}</div>
+      </div>` : ''}
     </div>`;
   if (!DEMO_MODE) { loadAgents(); loadAdminApps(); }
+  if (state.user && state.user.isSuperAdmin) loadBackups();
+}
+
+function contentRow(type, title, sub, icon) {
+  const count = (C()[type] || []).length;
+  return `<div class="sec-row">
+    <div class="sec-info"><h4>${title} <span style="color:var(--slate);font-weight:600">· ${count}</span></h4><p>${sub}</p></div>
+    <button class="btn btn-outline btn-sm" onclick="openResource('${type}')"><i class="fa-solid ${icon}"></i><span>Manage</span></button>
+  </div>`;
 }
 
 async function loadAgents() {
@@ -1156,21 +1188,278 @@ async function saveContent() {
 }
 window.saveContent = saveContent;
 
-async function uploadFile() {
-  if (DEMO_MODE) { toast('File upload needs the Cloudflare worker connected.', 'info'); return; }
-  const input = $('upFile');
-  if (!input.files.length) { toast('Choose a file first.', 'err'); return; }
+/* ---------------------------------------------------------------------------
+   Content manager — upload + add/edit/remove brochures, offers and images.
+   Changes are written into the portal content blob (brochures/offers/media);
+   uploaded files are stored in the worker's KV and referenced by URL.
+   --------------------------------------------------------------------------- */
+const RESOURCES = {
+  brochures: {
+    label: 'Brochures', singular: 'brochure', icon: 'fa-file-pdf', category: 'brochures', urlKey: 'url',
+    title: (b) => b.title,
+    summary: (b) => [b.programme, b.region, b.size].filter(Boolean).join(' · '),
+    upload: { label: 'Brochure PDF', accept: '.pdf,application/pdf', required: true },
+    fields: [
+      { key: 'title', label: 'Title', required: true, placeholder: 'AUS Global Brochure' },
+      { key: 'programme', label: 'Programme', placeholder: 'All programmes' },
+      { key: 'region', label: 'Region', placeholder: 'Global' },
+    ],
+    blank: () => ({ id: uid('b'), title: '', programme: '', region: '', url: '', size: '', updated: today() }),
+  },
+  offers: {
+    label: 'Offers', singular: 'offer', icon: 'fa-gift', category: 'media', urlKey: 'image',
+    title: (o) => o.title,
+    summary: (o) => [o.badge, o.subtitle].filter(Boolean).join(' · '),
+    upload: { label: 'Offer image (optional)', accept: 'image/*', required: false },
+    fields: [
+      { key: 'title', label: 'Title', required: true, placeholder: 'CHF 1,000 commission bonus per new student' },
+      { key: 'badge', label: 'Badge', placeholder: 'January 2027 intake' },
+      { key: 'subtitle', label: 'Subtitle' },
+      { key: 'body', label: 'Body', type: 'textarea' },
+      { key: 'bullets', label: 'Bullet points (one per line)', type: 'textarea' },
+      { key: 'cta', label: 'Button label', placeholder: 'Submit an application' },
+      { key: 'contact', label: 'Contact line' },
+      { key: 'active', label: 'Show this offer to agents', type: 'checkbox' },
+    ],
+    blank: () => ({ id: uid('o'), active: true, badge: '', title: '', subtitle: '', body: '', bullets: [], cta: 'Submit an application', contact: '', image: '' }),
+  },
+  media: {
+    label: 'Images & media', singular: 'image', icon: 'fa-image', category: 'media', urlKey: 'url',
+    title: (m) => m.title,
+    summary: (m) => [m.type, m.tags].filter(Boolean).join(' · '),
+    upload: { label: 'Image file', accept: 'image/*', required: true },
+    fields: [
+      { key: 'title', label: 'Title', required: true, placeholder: 'AUS campus on the Swiss Riviera' },
+      { key: 'type', label: 'Type', placeholder: 'Photo' },
+      { key: 'tags', label: 'Tags (comma separated)', placeholder: 'campus, switzerland' },
+    ],
+    blank: () => ({ id: uid('m'), title: '', type: 'Photo', tags: '', url: '' }),
+  },
+};
+let resEdit = null; // { type, id, base } while the edit modal is open
+
+async function uploadToWorker(file, category) {
   const fd = new FormData();
-  fd.append('file', input.files[0]);
-  fd.append('category', $('upCategory').value);
-  fd.append('name', input.files[0].name);
+  fd.append('file', file);
+  fd.append('category', category || 'media');
+  fd.append('name', file.name);
+  const res = await api('/api/admin/files', { method: 'POST', body: fd });
+  return res.data;
+}
+
+async function putContentObject(content, okMsg) {
+  if (DEMO_MODE) { state.content = content; toast((okMsg || 'Saved.') + ' (demo only).', 'ok'); return; }
+  await api('/api/admin/content', { method: 'PUT', body: { content } });
+  state.content = content;
+  toast(okMsg || 'Saved.', 'ok');
+}
+
+function openResource(type) {
+  const def = RESOURCES[type];
+  const items = C()[type] || [];
+  openModal(`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+      <div><h2>${def.label}</h2><p class="modal-sub" style="margin-bottom:0">Add, edit or remove entries. Changes publish to all agents immediately.</p></div>
+      <button class="btn btn-primary btn-sm" onclick="editResourceItem('${type}')"><i class="fa-solid fa-plus"></i><span>Add</span></button>
+    </div>
+    <div class="item-list" style="margin-top:18px">
+      ${items.length ? items.map((it) => `
+        <div class="item">
+          <div class="item-icon crimson"><i class="fa-solid ${def.icon}"></i></div>
+          <div class="item-body"><h4>${esc(def.title(it) || 'Untitled')}</h4><p>${esc(def.summary(it) || '')}</p></div>
+          <div class="item-actions">
+            <button class="btn btn-ghost btn-sm" onclick="editResourceItem('${type}','${esc(it.id)}')">Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteResourceItem('${type}','${esc(it.id)}')">Remove</button>
+          </div>
+        </div>`).join('') : emptyInline('Nothing here yet — add the first one.')}
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>`, true);
+}
+window.openResource = openResource;
+
+function resField(f, value) {
+  if (f.type === 'checkbox') {
+    return `<label style="display:flex;gap:9px;align-items:center;font-size:13.5px;color:var(--ink-soft);margin:10px 0">
+      <input type="checkbox" id="rf_${f.key}" style="width:auto" ${value ? 'checked' : ''}> ${esc(f.label)}</label>`;
+  }
+  const v = f.key === 'bullets' && Array.isArray(value) ? value.join('\n') : (value || '');
+  if (f.type === 'textarea') {
+    return `<div class="field"><label>${esc(f.label)}</label><textarea id="rf_${f.key}" placeholder="${esc(f.placeholder || '')}">${esc(v)}</textarea></div>`;
+  }
+  return `<div class="field"><label>${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ''}</label>
+    <input id="rf_${f.key}" value="${esc(v)}" placeholder="${esc(f.placeholder || '')}"></div>`;
+}
+
+function editResourceItem(type, id) {
+  const def = RESOURCES[type];
+  const base = id ? (C()[type] || []).find((x) => x.id === id) : def.blank();
+  if (!base) { toast('That item no longer exists.', 'err'); return; }
+  resEdit = { type, id: id || null, base: JSON.parse(JSON.stringify(base)) };
+  const currentUrl = base[def.urlKey];
+  openModal(`
+    <h2>${id ? 'Edit' : 'Add'} ${def.singular}</h2>
+    <p class="modal-sub">${def.upload ? 'Upload a file and fill in the details below.' : 'Fill in the details below.'}</p>
+    ${def.fields.map((f) => resField(f, base[f.key])).join('')}
+    ${def.upload ? `<div class="field">
+      <label>${def.upload.label}${def.upload.required ? ' <span class="req">*</span>' : ''}</label>
+      ${currentUrl ? `<p class="field-hint" style="margin-bottom:6px"><i class="fa-solid fa-paperclip"></i> ${esc(currentUrl)}</p>` : ''}
+      <input id="rf_file" type="file" accept="${def.upload.accept}">
+    </div>` : ''}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="editResourceItemBack()">Back</button>
+      <button class="btn btn-primary" onclick="saveResourceItem()"><span>${id ? 'Save' : 'Add'}</span></button>
+    </div>`, true);
+}
+window.editResourceItem = editResourceItem;
+function editResourceItemBack() { if (resEdit) openResource(resEdit.type); }
+window.editResourceItemBack = editResourceItemBack;
+
+async function saveResourceItem() {
+  if (!resEdit) return;
+  const def = RESOURCES[resEdit.type];
+  const item = JSON.parse(JSON.stringify(resEdit.base));
+  for (const f of def.fields) {
+    const el = $('rf_' + f.key);
+    if (!el) continue;
+    if (f.type === 'checkbox') item[f.key] = el.checked;
+    else if (f.key === 'bullets') item[f.key] = el.value.split('\n').map((s) => s.trim()).filter(Boolean);
+    else item[f.key] = el.value.trim();
+  }
+  const missing = def.fields.find((f) => f.required && !String(item[f.key] || '').trim());
+  if (missing) { toast(missing.label + ' is required.', 'err'); return; }
+
+  const fileEl = def.upload ? $('rf_file') : null;
+  const file = fileEl && fileEl.files ? fileEl.files[0] : null;
+  if (def.upload && def.upload.required && !file && !item[def.urlKey]) {
+    toast(def.upload.label + ' is required.', 'err'); return;
+  }
+
   try {
-    await api('/api/admin/files', { method: 'POST', body: fd });
-    toast('File uploaded to the worker.', 'ok');
-    input.value = '';
+    if (file) {
+      const up = await uploadToWorker(file, def.category);
+      item[def.urlKey] = up.url;
+      if (resEdit.type === 'brochures') { item.size = fileSize(up.size); item.updated = today(); }
+    }
+    const content = JSON.parse(JSON.stringify(C()));
+    content[resEdit.type] = content[resEdit.type] || [];
+    if (resEdit.id) {
+      const i = content[resEdit.type].findIndex((x) => x.id === resEdit.id);
+      if (i >= 0) content[resEdit.type][i] = item;
+      else content[resEdit.type].unshift(item);
+    } else {
+      content[resEdit.type].unshift(item);
+    }
+    await putContentObject(content, 'Saved.');
+    openResource(resEdit.type);
   } catch (e) { toast(friendlyError(e), 'err'); }
 }
-window.uploadFile = uploadFile;
+window.saveResourceItem = saveResourceItem;
+
+async function deleteResourceItem(type, id) {
+  const def = RESOURCES[type];
+  const it = (C()[type] || []).find((x) => x.id === id);
+  if (!confirm('Remove "' + (def.title(it) || 'this item') + '"? This cannot be undone.')) return;
+  const content = JSON.parse(JSON.stringify(C()));
+  content[type] = (content[type] || []).filter((x) => x.id !== id);
+  try { await putContentObject(content, 'Removed.'); openResource(type); }
+  catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.deleteResourceItem = deleteResourceItem;
+
+/* ---------------------------------------------------------------------------
+   Backups (superadmin only)
+   --------------------------------------------------------------------------- */
+function backupKindLabel(kind) {
+  return { auto: 'Automatic', manual: 'Manual', 'pre-change': 'Before an edit', 'pre-restore': 'Before a restore' }[kind] || 'Backup';
+}
+
+async function loadBackups() {
+  const el = $('backupList');
+  if (!el) return;
+  if (DEMO_MODE) { el.innerHTML = emptyInline('Backups require the Cloudflare worker.'); return; }
+  try {
+    const res = await api('/api/admin/backups');
+    if (!res.data.length) { el.innerHTML = emptyInline('No backups yet. One is taken automatically each day.'); return; }
+    const last = res.data[0];
+    el.innerHTML = `
+      <div class="card" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <i class="fa-solid fa-clock-rotate-left" style="color:var(--crimson);font-size:16px"></i>
+        <span style="font-size:13.5px">Last backup: <b>${fmtDate(last.createdAt)}</b> · ${esc(backupKindLabel(last.kind))}${last.counts ? ' · ' + last.counts.content + ' content items, ' + last.counts.users + ' accounts' : ''}</span>
+        <span style="margin-left:auto;font-size:12.5px;color:var(--slate)">Keeping the latest ${res.keep}</span>
+      </div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>When</th><th>Type</th><th>Contents</th><th>Size</th><th></th></tr></thead>
+        <tbody>${res.data.map((b) => `
+          <tr>
+            <td>${fmtDate(b.createdAt)}<br><span style="color:var(--slate);font-size:12px">${esc(String(b.createdAt || '').slice(11, 16))} UTC</span></td>
+            <td><span class="tag">${esc(backupKindLabel(b.kind))}</span></td>
+            <td>${b.counts ? `${b.counts.content} content · ${b.counts.applications} apps · ${b.counts.users} accounts` : '—'}<br><span style="color:var(--slate);font-size:12px">by ${esc(b.createdBy || '—')}</span></td>
+            <td>${fileSize(b.bytes)}</td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn btn-ghost btn-sm" onclick="downloadBackup('${esc(b.id)}')">Download</button>
+              <button class="btn btn-ghost btn-sm" onclick="restoreBackupPrompt('${esc(b.id)}')">Restore</button>
+              <button class="btn btn-ghost btn-sm" onclick="deleteBackup('${esc(b.id)}')">Delete</button>
+            </td>
+          </tr>`).join('')}</tbody>
+      </table></div>`;
+  } catch (e) { el.innerHTML = emptyInline(friendlyError(e)); }
+}
+
+async function backupNow() {
+  if (DEMO_MODE) { toast('Backups require the Cloudflare worker.', 'info'); return; }
+  try { await api('/api/admin/backups', { method: 'POST' }); toast('Backup created.', 'ok'); loadBackups(); }
+  catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.backupNow = backupNow;
+
+function restoreBackupPrompt(id) {
+  openModal(`
+    <h2>Restore a backup</h2>
+    <p class="modal-sub">Choose what to restore. The current state is backed up automatically first, so a restore can itself be undone.</p>
+    <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin:8px 0"><input type="checkbox" id="rs_content" checked style="width:auto"> Portal content (brochures, offers, images, news…)</label>
+    <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin:8px 0"><input type="checkbox" id="rs_apps" style="width:auto"> Student applications</label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="restoreBackup('${esc(id)}')"><span>Restore now</span></button>
+    </div>`);
+}
+window.restoreBackupPrompt = restoreBackupPrompt;
+
+async function restoreBackup(id) {
+  const scope = [];
+  if ($('rs_content') && $('rs_content').checked) scope.push('content');
+  if ($('rs_apps') && $('rs_apps').checked) scope.push('applications');
+  if (!scope.length) { toast('Select at least one thing to restore.', 'err'); return; }
+  try {
+    await api('/api/admin/backups/restore', { method: 'POST', body: { id, scope } });
+    closeModal();
+    toast('Backup restored.', 'ok');
+    try { const res = await api('/api/content'); state.content = res.data; } catch {}
+    renderAdmin($('view'));
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.restoreBackup = restoreBackup;
+
+async function deleteBackup(id) {
+  if (!confirm('Delete this backup? This cannot be undone.')) return;
+  try { await api('/api/admin/backups?id=' + encodeURIComponent(id), { method: 'DELETE' }); toast('Backup deleted.', 'ok'); loadBackups(); }
+  catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.deleteBackup = deleteBackup;
+
+async function downloadBackup(id) {
+  try {
+    const res = await fetch(WORKER + '/api/admin/backups/' + encodeURIComponent(id), { headers: { Authorization: 'Bearer ' + state.token } });
+    if (!res.ok) throw new Error('download_failed');
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'aus-portal-backup-' + id + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) { toast('Could not download this backup.', 'err'); }
+}
+window.downloadBackup = downloadBackup;
 
 /* ---------------------------------------------------------------------------
    File opening (gated worker files need an authenticated fetch)

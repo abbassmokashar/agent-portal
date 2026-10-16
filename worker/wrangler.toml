@@ -22,6 +22,15 @@ binding = "FILES"
 id = "fa38a4924d814e1cafa8f89efbf9f79f"
 
 # ---------------------------------------------------------------------------
+# Automatic backups — a snapshot of content/applications/files is written to KV
+# on this schedule (UTC). Daily at 03:00, plus a snapshot before every content
+# change. Superadmins can also trigger/download/restore from the Admin view.
+#   crons are standard cron syntax: minute hour day-of-month month day-of-week
+# ---------------------------------------------------------------------------
+[triggers]
+crons = ["0 3 * * *"]
+
+# ---------------------------------------------------------------------------
 # Browser origins allowed to call this API (your GitHub Pages site + local dev)
 # ---------------------------------------------------------------------------
 [vars]
