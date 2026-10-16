@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="CHF 1000 commission bonus offer">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b214d"/><stop offset="1" stop-color="#3a2160"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <circle cx="640" cy="140" r="150" fill="#fff737" opacity="0.14"/>
+  <text x="60" y="150" fill="#fff737" font-family="Inter, sans-serif" font-size="24" font-weight="800" letter-spacing="4">JANUARY 2027</text>
+  <text x="60" y="290" fill="#ffffff" font-family="Inter, sans-serif" font-size="96" font-weight="800">CHF 1,000</text>
+  <text x="60" y="345" fill="#ffffff" opacity="0.85" font-family="Inter, sans-serif" font-size="30" font-weight="600">commission bonus</text>
+  <text x="60" y="400" fill="#768cb0" font-family="Georgia, serif" font-style="italic" font-size="22">per new student recruited</text>
+  <rect x="60" y="450" width="220" height="52" rx="26" fill="#be1f3d"/>
+  <text x="170" y="483" text-anchor="middle" fill="#ffffff" font-family="Inter, sans-serif" font-size="18" font-weight="700">50th Anniversary</text>
+</svg>

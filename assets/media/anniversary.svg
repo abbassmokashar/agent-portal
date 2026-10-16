@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="AUS 50th anniversary">
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#be1f3d"/><stop offset="1" stop-color="#1b214d"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#glow)"/>
+  <g fill="#fff737" opacity="0.85">
+    <circle cx="140" cy="120" r="5"/><circle cx="680" cy="180" r="4"/><circle cx="240" cy="480" r="4"/>
+    <circle cx="620" cy="470" r="5"/><circle cx="400" cy="90" r="4"/>
+  </g>
+  <text x="400" y="330" text-anchor="middle" fill="#ffffff" font-family="Inter, sans-serif" font-size="200" font-weight="800" letter-spacing="-8">50</text>
+  <text x="400" y="392" text-anchor="middle" fill="#fff737" font-family="Georgia, serif" font-style="italic" font-size="34">years of AUS</text>
+  <text x="400" y="430" text-anchor="middle" fill="#ffffff" opacity="0.7" font-family="Inter, sans-serif" font-size="16" letter-spacing="6">1976 — 2026</text>
+</svg>

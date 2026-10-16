@@ -1,0 +1,33 @@
+name = "aus-agent-portal"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+# ---------------------------------------------------------------------------
+# D1 database (accounts, sessions, content, applications)
+#   npx wrangler d1 create aus-agent-portal
+#   -> paste the returned database_id below
+# ---------------------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "aus-agent-portal"
+database_id = "1955e5b5-4391-404a-b135-41536d7a907f"
+
+# ---------------------------------------------------------------------------
+# KV namespace (gated brochures, contracts, media)
+#   npx wrangler kv namespace create FILES
+#   -> paste the returned id below
+# ---------------------------------------------------------------------------
+[[kv_namespaces]]
+binding = "FILES"
+id = "fa38a4924d814e1cafa8f89efbf9f79f"
+
+# ---------------------------------------------------------------------------
+# Browser origins allowed to call this API (your GitHub Pages site + local dev)
+# ---------------------------------------------------------------------------
+[vars]
+ALLOWED_ORIGINS = "https://abbassmokashar.github.io,http://localhost:8000,http://127.0.0.1:8000"
+
+# Secrets (set once, never committed):
+#   npx wrangler secret put ADMIN_TOKEN          # one-time token to create the first admin
+#   npx wrangler secret put RESEND_API_KEY       # optional — password-reset emails
+#   npx wrangler secret put NOTIFY_EMAIL_FROM    # optional — e.g. "AUS Portal <noreply@aus.swiss>"

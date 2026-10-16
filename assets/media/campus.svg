@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="AUS campus on the Swiss Riviera">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22295f"/><stop offset="1" stop-color="#4a5490"/>
+    </linearGradient>
+    <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#768cb0"/><stop offset="1" stop-color="#22295f"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <circle cx="620" cy="150" r="60" fill="#fff737" opacity="0.9"/>
+  <path d="M0 360 L160 210 L320 360 Z" fill="#1b214d"/>
+  <path d="M240 360 L430 180 L620 360 Z" fill="#2b3370"/>
+  <path d="M520 360 L700 240 L800 360 Z" fill="#1b214d"/>
+  <rect y="360" width="800" height="240" fill="url(#lake)"/>
+  <g stroke="#ffffff" stroke-opacity="0.18" stroke-width="2">
+    <line x1="60" y1="420" x2="300" y2="420"/><line x1="360" y1="460" x2="640" y2="460"/>
+    <line x1="120" y1="500" x2="380" y2="500"/><line x1="480" y1="530" x2="740" y2="530"/>
+  </g>
+  <text x="40" y="70" fill="#fff737" font-family="Inter, sans-serif" font-size="26" font-weight="800" letter-spacing="6">AUS</text>
+  <text x="40" y="98" fill="#ffffff" opacity="0.7" font-family="Georgia, serif" font-style="italic" font-size="18">Swiss Riviera · Montreux</text>
+</svg>

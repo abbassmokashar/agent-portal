@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Jonathan Hilton, agent contact">
+  <rect width="800" height="600" fill="#22295f"/>
+  <rect x="0" y="420" width="800" height="180" fill="#be1f3d"/>
+  <circle cx="400" cy="250" r="110" fill="#768cb0"/>
+  <circle cx="400" cy="215" r="46" fill="#f1f1ef"/>
+  <path d="M320 340 a80 80 0 0 1 160 0 z" fill="#f1f1ef"/>
+  <text x="400" y="500" text-anchor="middle" fill="#ffffff" font-family="Inter, sans-serif" font-size="28" font-weight="700">Jonathan Hilton</text>
+  <text x="400" y="534" text-anchor="middle" fill="#fff737" font-family="Georgia, serif" font-style="italic" font-size="20">Agent Relations</text>
+</svg>

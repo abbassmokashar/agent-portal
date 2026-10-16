@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AUS Agent Portal</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+</head>
+<body>
+
+  <!-- =====================  AUTH / LOGIN  ===================== -->
+  <div class="auth" id="authScreen">
+    <div class="auth-brand">
+      <div class="auth-brand-mark">
+        <span class="mark-aus">AUS</span>
+        <span class="mark-sub">Business School · Switzerland</span>
+      </div>
+      <h1 class="auth-brand-title">Agent <em>Portal</em></h1>
+      <p class="auth-brand-lead">
+        Contracts, programmes, brochures, media and a facilitated application
+        process — everything you need, in one private place.
+      </p>
+      <ul class="auth-brand-points">
+        <li><i class="fa-solid fa-lock"></i> Private access for selected AUS agents</li>
+        <li><i class="fa-solid fa-file-arrow-down"></i> Brochures &amp; contracts, always current</li>
+        <li><i class="fa-solid fa-paper-plane"></i> Submit student applications directly</li>
+      </ul>
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="auth-card-head">
+          <h2 id="authTitle">Agent sign in</h2>
+          <p id="authSub">Access is by invitation. Use the credentials AUS sent you.</p>
+        </div>
+
+        <div class="field" id="loginFields">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" autocomplete="username" placeholder="e.g. agenthause" />
+          <label for="loginPass">Password</label>
+          <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter')doLogin()" />
+        </div>
+
+        <div class="field hidden" id="twofaFields">
+          <label for="twofaCode">Two-factor code</label>
+          <input id="twofaCode" inputmode="numeric" maxlength="6" placeholder="000000"
+                 onkeydown="if(event.key==='Enter')doTwofa()" />
+          <p class="field-hint">Open your authenticator app and enter the 6-digit code.</p>
+        </div>
+
+        <div class="field hidden" id="resetFields">
+          <label for="resetPass">New password</label>
+          <input id="resetPass" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
+          <button class="btn btn-primary" onclick="doReset()"><span>Set new password</span></button>
+        </div>
+
+        <div class="auth-error" id="authError"></div>
+
+        <button class="btn btn-primary auth-submit" id="authSubmit" onclick="doLogin()">
+          <span>Sign in</span>
+        </button>
+        <button class="btn btn-ghost hidden" id="twofaSubmit" onclick="doTwofa()"><span>Verify code</span></button>
+
+        <div class="auth-links">
+          <button class="link-btn" onclick="showForgot()">Forgot password?</button>
+          <button class="link-btn hidden" onclick="showLoginForm()">← Back to sign in</button>
+        </div>
+
+        <div class="auth-demo-note" id="demoNote">
+          <i class="fa-solid fa-circle-info"></i>
+          <span id="demoNoteText">Demo credentials: <b>demo</b> / <b>demo1234</b></span>
+        </div>
+      </div>
+
+      <p class="auth-foot">
+        Not an agent yet? Contact
+        <a href="mailto:j.hilton@aus.swiss">j.hilton@aus.swiss</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- =====================  APP  ===================== -->
+  <div class="app hidden" id="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="mark-aus">AUS</span>
+        <span class="mark-sub">Agent Portal</span>
+      </div>
+
+      <nav class="nav" id="nav"></nav>
+
+      <div class="sidebar-foot">
+        <div class="whoami">
+          <div class="whoami-avatar" id="whoAvatar">A</div>
+          <div class="whoami-info">
+            <span class="whoami-name" id="whoName">Agent</span>
+            <span class="whoami-role" id="whoRole">Agent</span>
+          </div>
+        </div>
+        <div class="sidebar-foot-actions">
+          <button class="icon-btn" title="Account &amp; security" onclick="go('account')"><i class="fa-solid fa-shield-halved"></i></button>
+          <button class="icon-btn" title="Sign out" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 id="viewTitle">Dashboard</h1>
+          <p id="viewSub"></p>
+        </div>
+        <div class="topbar-right">
+          <span class="conn-pill" id="connPill"><i class="fa-solid fa-circle"></i> <span>Connecting…</span></span>
+          <a class="btn btn-outline" href="mailto:j.hilton@aus.swiss"><i class="fa-solid fa-envelope"></i><span>Contact AUS</span></a>
+        </div>
+      </header>
+      <div class="view" id="view"></div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
