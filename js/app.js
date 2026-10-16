@@ -445,7 +445,31 @@ function renderShell() {
     .join('');
 }
 
+function toggleSidebar() {
+  const s = document.querySelector('.sidebar');
+  if (!s) return;
+  const willOpen = !s.classList.contains('open');
+  s.classList.toggle('open', willOpen);
+  const b = $('sidebarBackdrop');
+  if (b) b.classList.toggle('open', willOpen);
+  const t = $('navToggle');
+  if (t) t.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  document.body.style.overflow = willOpen ? 'hidden' : '';
+}
+function closeSidebar() {
+  const s = document.querySelector('.sidebar');
+  if (s) s.classList.remove('open');
+  const b = $('sidebarBackdrop');
+  if (b) b.classList.remove('open');
+  const t = $('navToggle');
+  if (t) t.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+}
+window.toggleSidebar = toggleSidebar;
+window.closeSidebar = closeSidebar;
+
 function go(view) {
+  closeSidebar();
   state.view = view;
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.nav === view));
   const [t, s] = TITLES[view] || ['', ''];
@@ -971,7 +995,7 @@ async function loadAgents() {
     const res = await api('/api/admin/agents');
     const el = $('agentTable');
     if (!res.data.length) { el.innerHTML = emptyInline('No accounts yet.'); return; }
-    el.innerHTML = `<table class="table">
+    el.innerHTML = `<div class="table-wrap"><table class="table">
       <thead><tr><th>Name</th><th>Contact</th><th>Country</th><th>Role</th><th>2FA</th><th></th></tr></thead>
       <tbody>${res.data.map((a) => {
         const roleTag = a.role === 'superadmin'
@@ -991,7 +1015,7 @@ async function loadAgents() {
           </td>
         </tr>`;
       }).join('')}</tbody>
-    </table>`;
+    </table></div>`;
   } catch (e) { $('agentTable').innerHTML = emptyInline(friendlyError(e)); }
 }
 
@@ -1086,7 +1110,7 @@ async function loadAdminApps() {
     const res = await api('/api/admin/applications');
     const el = $('adminApps');
     if (!res.data.length) { el.innerHTML = emptyInline('No applications yet.'); return; }
-    el.innerHTML = `<table class="table">
+    el.innerHTML = `<div class="table-wrap"><table class="table">
       <thead><tr><th>Student</th><th>Programme</th><th>Agent</th><th>Status</th></tr></thead>
       <tbody>${res.data.map((a) => `
         <tr>
@@ -1099,7 +1123,7 @@ async function loadAdminApps() {
             </select>
           </td>
         </tr>`).join('')}</tbody>
-    </table>`;
+    </table></div>`;
   } catch (e) { $('adminApps').innerHTML = emptyInline(friendlyError(e)); }
 }
 async function setAppStatus(id, status) {
@@ -1188,6 +1212,9 @@ window.openFile = openFile;
   } else {
     $('demoNote').classList.add('hidden');
   }
+
+  window.addEventListener('resize', () => { if (window.innerWidth > 820) closeSidebar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSidebar(); });
 
   restoreSession();
 })();
