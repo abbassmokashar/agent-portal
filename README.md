@@ -126,8 +126,42 @@ curl -X POST https://aus-agent-portal.<you>.workers.dev/api/auth/bootstrap \
   -d '{"token":"YOUR_ADMIN_TOKEN","username":"admin","email":"you@aus.swiss","password":"a-strong-password"}'
 ```
 
-Then sign in to the portal as `admin`, open **Admin → Add agent**, and create your
+Then sign in to the portal as `admin`, open **Admin → Add account**, and create your
 agents. (You can also enable 2FA under **Account & Security**.)
+
+### Superadmin
+
+The first account created via `/api/auth/bootstrap` is a **superadmin**:
+
+- **Invisible** — superadmins are hidden from the account list for everyone except
+  another superadmin.
+- **Full control** — can create/remove administrators, promote or demote any
+  account (**Make admin / Remove admin**), reset anyone's password, and manage all
+  content. Regular administrators can only create and manage agents.
+- **Protected** — a superadmin account cannot be deleted or demoted, including by
+  itself.
+
+### Agent account rules
+
+When adding an account, **full name, email, phone and country are required**, plus
+a username and an 8+ character password. Country is chosen from a searchable
+dropdown.
+
+### Optional: HubSpot application form
+
+The Applications view ships with a built-in form. To swap it for a HubSpot form,
+edit `js/config.js`:
+
+```js
+HUBSPOT: {
+  enabled: true,
+  portalId: '44876987',                 // HubSpot -> Marketing -> Forms -> Share
+  formId: 'a1b2c3d4-1234-5678-....',
+  region: 'eu1',                        // 'na1' | 'eu1' | 'ap1'
+},
+```
+
+No worker changes are needed — the HubSpot embed loads automatically.
 
 ## Publish the front-end on GitHub Pages
 

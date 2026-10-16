@@ -58,11 +58,27 @@ const DEMO_CONTENT = {
     { id: 'c2', title: 'Student Enrolment Contract (template)', note: 'Template enrolment contract to share with students before registration.', url: 'assets/brochures/AUS-Global-Brochure.pdf', updated: '2026-10-01' },
   ],
   programmes: [
-    { id: 'p1', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 24,900 / year', description: 'Practice-led hospitality degree on the Swiss Riviera with paid internship options.' },
-    { id: 'p2', level: 'Bachelor', title: 'Business Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 22,900 / year', description: 'Core business foundations with specialisations in marketing, finance and entrepreneurship.' },
-    { id: 'p3', level: 'Master', title: 'Business Administration (MBA)', region: 'Switzerland', duration: '18 months', language: 'English', intakes: 'January · September', fees: 'CHF 29,500 total', description: 'Executive-format MBA for working professionals and career changers.' },
-    { id: 'p4', level: 'Doctorate', title: 'Doctor of Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'Rolling', fees: 'On request', description: 'Research-based doctorate for senior practitioners and consultants.' },
-    { id: 'p5', level: 'Diploma', title: 'Swiss Federal Diploma', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'September', fees: 'CHF 18,500 / year', description: 'Federally recognised diploma combining theory with a structured apprenticeship.' },
+    { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The language of business, mastered.' },
+    { id: 'p2', level: 'Bachelor', title: 'Business Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Lead organizations from day one.' },
+    { id: 'p3', level: 'Bachelor', title: 'Healthcare Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Healthcare needs better leaders.' },
+    { id: 'p4', level: 'Bachelor', title: 'Human Resource Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'People are the strategy.' },
+    { id: 'p5', level: 'Bachelor', title: 'Integrated & Digital Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Strategy meets execution.' },
+    { id: 'p6', level: 'Bachelor', title: 'International Business', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Think beyond borders.' },
+    { id: 'p7', level: 'Bachelor', title: 'Sports Management — Athletic Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Run the game, not the sidelines.' },
+    { id: 'p8', level: 'Bachelor', title: 'Sports Management — Sports Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Build brands that move people.' },
+    { id: 'p9', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 30,000 / year', description: 'Excellence is the experience.' },
+    { id: 'p10', level: 'Bachelor', title: 'Aviation Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The business of getting there.' },
+    { id: 'p11', level: 'Master', title: 'Finance', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Markets reward precision.' },
+    { id: 'p12', level: 'Master', title: 'Data Analytics', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Turn noise into signal.' },
+    { id: 'p13', level: 'Master', title: 'Healthcare Administration', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Systems that save lives.' },
+    { id: 'p14', level: 'Master', title: 'Human Resource Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Talent is the competitive edge.' },
+    { id: 'p15', level: 'Master', title: 'International Business', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Lead across markets.' },
+    { id: 'p16', level: 'Master', title: 'Leadership & Change', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Move organizations forward.' },
+    { id: 'p17', level: 'Master', title: 'Sports Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'The business behind the game.' },
+    { id: 'p18', level: 'Master', title: 'Strategic Brand & Digital Marketing', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Brand is the business model.' },
+    { id: 'p19', level: 'Master', title: 'Aviation Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Altitude requires strategy.' },
+    { id: 'p20', level: 'Doctorate', title: 'Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 26,000 / year', description: 'Original research that advances practice for experienced leaders.' },
+    { id: 'p21', level: 'Diploma', title: 'Swiss Federal Diploma — Business Administration', region: 'Switzerland', duration: '2 years (part-time)', language: 'English', intakes: 'September', fees: 'CHF 28,000 / year', description: 'The nationally recognized Swiss professional qualification, valued across European industries.' },
   ],
   regions: [
     { id: 'r1', name: 'Switzerland', blurb: 'Campus in Montreux on the Swiss Riviera.' },
@@ -121,6 +137,93 @@ function openModal(html, wide = false) {
 }
 function closeModal() { $('modalOverlay').classList.remove('open'); }
 window.closeModal = closeModal;
+
+/* ---------------------------------------------------------------------------
+   Country list + searchable combobox
+   --------------------------------------------------------------------------- */
+const COUNTRIES = [
+  { name: 'Afghanistan', code: 'AF' }, { name: 'Albania', code: 'AL' }, { name: 'Algeria', code: 'DZ' },
+  { name: 'Andorra', code: 'AD' }, { name: 'Angola', code: 'AO' }, { name: 'Argentina', code: 'AR' },
+  { name: 'Armenia', code: 'AM' }, { name: 'Australia', code: 'AU' }, { name: 'Austria', code: 'AT' },
+  { name: 'Azerbaijan', code: 'AZ' }, { name: 'Bahrain', code: 'BH' }, { name: 'Bangladesh', code: 'BD' },
+  { name: 'Belarus', code: 'BY' }, { name: 'Belgium', code: 'BE' }, { name: 'Benin', code: 'BJ' },
+  { name: 'Bolivia', code: 'BO' }, { name: 'Bosnia and Herzegovina', code: 'BA' }, { name: 'Botswana', code: 'BW' },
+  { name: 'Brazil', code: 'BR' }, { name: 'Brunei', code: 'BN' }, { name: 'Bulgaria', code: 'BG' },
+  { name: 'Burkina Faso', code: 'BF' }, { name: 'Cambodia', code: 'KH' }, { name: 'Cameroon', code: 'CM' },
+  { name: 'Canada', code: 'CA' }, { name: 'Chad', code: 'TD' }, { name: 'Chile', code: 'CL' },
+  { name: 'China', code: 'CN' }, { name: 'Colombia', code: 'CO' }, { name: 'Congo', code: 'CG' },
+  { name: 'Costa Rica', code: 'CR' }, { name: 'Croatia', code: 'HR' }, { name: 'Cuba', code: 'CU' },
+  { name: 'Cyprus', code: 'CY' }, { name: 'Czechia', code: 'CZ' }, { name: 'Denmark', code: 'DK' },
+  { name: 'Dominican Republic', code: 'DO' }, { name: 'Ecuador', code: 'EC' }, { name: 'Egypt', code: 'EG' },
+  { name: 'El Salvador', code: 'SV' }, { name: 'Estonia', code: 'EE' }, { name: 'Ethiopia', code: 'ET' },
+  { name: 'Finland', code: 'FI' }, { name: 'France', code: 'FR' }, { name: 'Gabon', code: 'GA' },
+  { name: 'Georgia', code: 'GE' }, { name: 'Germany', code: 'DE' }, { name: 'Ghana', code: 'GH' },
+  { name: 'Greece', code: 'GR' }, { name: 'Guatemala', code: 'GT' }, { name: 'Honduras', code: 'HN' },
+  { name: 'Hong Kong', code: 'HK' }, { name: 'Hungary', code: 'HU' }, { name: 'Iceland', code: 'IS' },
+  { name: 'India', code: 'IN' }, { name: 'Indonesia', code: 'ID' }, { name: 'Iran', code: 'IR' },
+  { name: 'Iraq', code: 'IQ' }, { name: 'Ireland', code: 'IE' }, { name: 'Israel', code: 'IL' },
+  { name: 'Italy', code: 'IT' }, { name: 'Ivory Coast', code: 'CI' }, { name: 'Jamaica', code: 'JM' },
+  { name: 'Japan', code: 'JP' }, { name: 'Jordan', code: 'JO' }, { name: 'Kazakhstan', code: 'KZ' },
+  { name: 'Kenya', code: 'KE' }, { name: 'Kuwait', code: 'KW' }, { name: 'Kyrgyzstan', code: 'KG' },
+  { name: 'Laos', code: 'LA' }, { name: 'Latvia', code: 'LV' }, { name: 'Lebanon', code: 'LB' },
+  { name: 'Libya', code: 'LY' }, { name: 'Liechtenstein', code: 'LI' }, { name: 'Lithuania', code: 'LT' },
+  { name: 'Luxembourg', code: 'LU' }, { name: 'Madagascar', code: 'MG' }, { name: 'Malaysia', code: 'MY' },
+  { name: 'Maldives', code: 'MV' }, { name: 'Mali', code: 'ML' }, { name: 'Malta', code: 'MT' },
+  { name: 'Mauritius', code: 'MU' }, { name: 'Mexico', code: 'MX' }, { name: 'Moldova', code: 'MD' },
+  { name: 'Monaco', code: 'MC' }, { name: 'Mongolia', code: 'MN' }, { name: 'Montenegro', code: 'ME' },
+  { name: 'Morocco', code: 'MA' }, { name: 'Mozambique', code: 'MZ' }, { name: 'Myanmar', code: 'MM' },
+  { name: 'Namibia', code: 'NA' }, { name: 'Nepal', code: 'NP' }, { name: 'Netherlands', code: 'NL' },
+  { name: 'New Zealand', code: 'NZ' }, { name: 'Nicaragua', code: 'NI' }, { name: 'Nigeria', code: 'NG' },
+  { name: 'North Macedonia', code: 'MK' }, { name: 'Norway', code: 'NO' }, { name: 'Oman', code: 'OM' },
+  { name: 'Pakistan', code: 'PK' }, { name: 'Palestine', code: 'PS' }, { name: 'Panama', code: 'PA' },
+  { name: 'Paraguay', code: 'PY' }, { name: 'Peru', code: 'PE' }, { name: 'Philippines', code: 'PH' },
+  { name: 'Poland', code: 'PL' }, { name: 'Portugal', code: 'PT' }, { name: 'Qatar', code: 'QA' },
+  { name: 'Romania', code: 'RO' }, { name: 'Russia', code: 'RU' }, { name: 'Rwanda', code: 'RW' },
+  { name: 'Saudi Arabia', code: 'SA' }, { name: 'Senegal', code: 'SN' }, { name: 'Serbia', code: 'RS' },
+  { name: 'Singapore', code: 'SG' }, { name: 'Slovakia', code: 'SK' }, { name: 'Slovenia', code: 'SI' },
+  { name: 'Somalia', code: 'SO' }, { name: 'South Africa', code: 'ZA' }, { name: 'South Korea', code: 'KR' },
+  { name: 'Spain', code: 'ES' }, { name: 'Sri Lanka', code: 'LK' }, { name: 'Sudan', code: 'SD' },
+  { name: 'Sweden', code: 'SE' }, { name: 'Switzerland', code: 'CH' }, { name: 'Syria', code: 'SY' },
+  { name: 'Taiwan', code: 'TW' }, { name: 'Tanzania', code: 'TZ' }, { name: 'Thailand', code: 'TH' },
+  { name: 'Tunisia', code: 'TN' }, { name: 'Turkey', code: 'TR' }, { name: 'Uganda', code: 'UG' },
+  { name: 'Ukraine', code: 'UA' }, { name: 'United Arab Emirates', code: 'AE' }, { name: 'United Kingdom', code: 'GB' },
+  { name: 'United States', code: 'US' }, { name: 'Uruguay', code: 'UY' }, { name: 'Uzbekistan', code: 'UZ' },
+  { name: 'Venezuela', code: 'VE' }, { name: 'Vietnam', code: 'VN' }, { name: 'Yemen', code: 'YE' },
+  { name: 'Zambia', code: 'ZM' }, { name: 'Zimbabwe', code: 'ZW' },
+];
+
+function renderComboList(inputId, listId) {
+  const input = $(inputId);
+  const list = $(listId);
+  const q = (input.value || '').trim().toLowerCase();
+  const items = COUNTRIES.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 80);
+  list.innerHTML = items.length
+    ? items.map((c) => `<div class="combo-opt" data-name="${esc(c.name)}" onmousedown="pickCombo('${inputId}','${listId}',this)">${esc(c.name)}<span class="cc">${c.code}</span></div>`).join('')
+    : '<div class="combo-empty">No match — check the spelling</div>';
+}
+function openCombo(inputId, listId) { renderComboList(inputId, listId); $(listId).classList.add('open'); }
+function onComboInput(inputId, listId) { $(inputId).dataset.value = ''; openCombo(inputId, listId); }
+function closeCombo(listId) { setTimeout(() => { const l = $(listId); if (l) l.classList.remove('open'); }, 160); }
+function pickCombo(inputId, listId, el) {
+  const input = $(inputId);
+  input.value = el.dataset.name;
+  input.dataset.value = el.dataset.name;
+  $(listId).classList.remove('open');
+}
+window.openCombo = openCombo; window.onComboInput = onComboInput; window.closeCombo = closeCombo; window.pickCombo = pickCombo;
+
+function countryField(id, label) {
+  return `<div class="field">
+    <label>${label} <span class="req">*</span></label>
+    <div class="combo">
+      <input id="${id}" placeholder="Start typing to search…" autocomplete="off"
+        oninput="onComboInput('${id}','${id}List')"
+        onfocus="openCombo('${id}','${id}List')"
+        onblur="closeCombo('${id}List')">
+      <div class="combo-list" id="${id}List"></div>
+    </div>
+  </div>`;
+}
 
 /* ---------------------------------------------------------------------------
    Auth
@@ -292,6 +395,13 @@ function friendlyError(e) {
     weak_password: 'Password must be at least 8 characters.',
     invalid_current: 'Your current password is incorrect.',
     username_taken: 'That username already exists.',
+    email_taken: 'That email is already registered.',
+    invalid_email: 'Enter a valid email address.',
+    missing_fields: 'Full name, email, phone and country are required.',
+    weak_input: 'Username and an 8+ character password are required.',
+    forbidden: 'You do not have permission to do that.',
+    protected: 'That account is protected and cannot be changed.',
+    cannot_delete_self: 'You cannot remove your own account.',
     not_found: 'Not found.',
     unauthorized: 'Your session expired. Please sign in again.',
   };
@@ -327,9 +437,9 @@ const TITLES = {
 
 function renderShell() {
   const u = state.user || {};
-  $('whoName').textContent = u.username || 'Agent';
-  $('whoRole').textContent = u.isAdmin ? 'Administrator' : 'AUS Agent';
-  $('whoAvatar').textContent = initials(u.username);
+  $('whoName').textContent = u.name || u.username || 'Agent';
+  $('whoRole').textContent = u.isSuperAdmin ? 'Superadmin' : u.isAdmin ? 'Administrator' : 'AUS Agent';
+  $('whoAvatar').textContent = initials(u.name || u.username);
   $('nav').innerHTML = NAV.filter((n) => !n.admin || u.isAdmin)
     .map((n) => `<button class="nav-item" data-nav="${n.id}" onclick="go('${n.id}')"><i class="fa-solid ${n.icon}"></i><span>${n.label}</span></button>`)
     .join('');
@@ -575,7 +685,29 @@ function renderMedia(v) {
 /* ---------------------------------------------------------------------------
    View: Applications
    --------------------------------------------------------------------------- */
+function submissionsHtml() {
+  return `
+    <div>
+      <div class="section-head"><div><h2>Your submissions</h2><p>Applications you've sent to AUS.</p></div></div>
+      <div class="item-list" id="appList">
+        ${state.localApps.length ? state.localApps.slice().reverse().map((a) => `
+          <div class="item">
+            <div class="item-icon"><i class="fa-solid fa-user-graduate"></i></div>
+            <div class="item-body">
+              <h4>${esc(a.studentName)}</h4>
+              <p>${esc(a.programme || 'Programme TBC')} · ${esc(a.intake || '')}</p>
+              <div class="item-meta"><span>Sent ${fmtDate(a.created)}</span></div>
+            </div>
+            <span class="tag ${a.status === 'new' ? 'amber' : 'green'}">${esc(a.status)}</span>
+          </div>`).join('') : emptyInline('You have not submitted any applications yet.')}
+      </div>
+    </div>`;
+}
+
 function renderApply(v) {
+  const HS = CFG.HUBSPOT || {};
+  if (HS.enabled && HS.portalId && HS.formId) { renderApplyHubspot(v, HS); return; }
+
   const programmes = (C().programmes || []).map((p) => `<option value="${esc(p.title)}">${esc(p.level)} · ${esc(p.title)}</option>`).join('');
   v.innerHTML = `
     <div class="grid cols-2" style="align-items:start">
@@ -583,7 +715,7 @@ function renderApply(v) {
         <h3 style="margin-bottom:6px">Submit a student application</h3>
         <p style="font-size:13px;margin-bottom:20px">Fill this in and AUS will follow up with you and the student. Fields marked * are required.</p>
         <div class="field-row">
-          <div class="field"><label>Student full name *</label><input id="apName" placeholder="First and last name"></div>
+          <div class="field"><label>Student full name <span class="req">*</span></label><input id="apName" placeholder="First and last name"></div>
           <div class="field"><label>Student email</label><input id="apEmail" type="email" placeholder="student@email.com"></div>
         </div>
         <div class="field-row">
@@ -597,23 +729,49 @@ function renderApply(v) {
         <div class="field"><label>Notes / context</label><textarea id="apNotes" placeholder="Grades, English level, budget, preferred start date…"></textarea></div>
         <button class="btn btn-primary btn-block" onclick="submitApplication()"><i class="fa-solid fa-paper-plane"></i><span>Submit application</span></button>
       </div>
-
-      <div>
-        <div class="section-head"><div><h2>Your submissions</h2><p>Applications you've sent to AUS.</p></div></div>
-        <div class="item-list" id="appList">
-          ${state.localApps.length ? state.localApps.slice().reverse().map((a) => `
-            <div class="item">
-              <div class="item-icon"><i class="fa-solid fa-user-graduate"></i></div>
-              <div class="item-body">
-                <h4>${esc(a.studentName)}</h4>
-                <p>${esc(a.programme || 'Programme TBC')} · ${esc(a.intake || '')}</p>
-                <div class="item-meta"><span>Sent ${fmtDate(a.created)}</span></div>
-              </div>
-              <span class="tag ${a.status === 'new' ? 'amber' : 'green'}">${esc(a.status)}</span>
-            </div>`).join('') : emptyInline('You have not submitted any applications yet.')}
-        </div>
-      </div>
+      ${submissionsHtml()}
     </div>`;
+}
+
+let _hubspotLoaded = null;
+function loadHubspotScript() {
+  if (_hubspotLoaded) return _hubspotLoaded;
+  _hubspotLoaded = new Promise((resolve, reject) => {
+    if (window.hbspt && window.hbspt.forms) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://js.hsforms.net/forms/embed/v2.js';
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('hubspot_load_failed'));
+    document.head.appendChild(s);
+  });
+  return _hubspotLoaded;
+}
+
+function renderApplyHubspot(v, HS) {
+  v.innerHTML = `
+    <div class="grid cols-2" style="align-items:start">
+      <div class="card">
+        <h3 style="margin-bottom:6px">Submit a student application</h3>
+        <p style="font-size:13px;margin-bottom:16px">Complete the form below — AUS will follow up with you and the student.</p>
+        <div class="hs-embed" id="hubspotForm"></div>
+      </div>
+      ${submissionsHtml()}
+    </div>`;
+  loadHubspotScript()
+    .then(() => {
+      if (window.hbspt && window.hbspt.forms) {
+        window.hbspt.forms.create({
+          region: HS.region || 'eu1',
+          portalId: HS.portalId,
+          formId: HS.formId,
+          target: '#hubspotForm',
+        });
+      }
+    })
+    .catch(() => {
+      $('hubspotForm').innerHTML = '<div class="empty"><i class="fa-solid fa-triangle-exclamation"></i><h3>HubSpot form unavailable</h3><p>Check the portalId and formId in <code>js/config.js</code>.</p></div>';
+    });
 }
 
 async function submitApplication() {
@@ -651,11 +809,13 @@ function renderAccount(v) {
       <div class="card">
         <h3>Profile</h3>
         <p style="font-size:13px;margin-bottom:18px">Your agent account details.</p>
+        <div class="sec-row"><div class="sec-info"><h4>Name</h4><p>${esc(u.name || '—')}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Username</h4><p>${esc(u.username)}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Email</h4><p>${esc(u.email || '—')}</p></div></div>
+        <div class="sec-row"><div class="sec-info"><h4>Phone</h4><p>${esc(u.phone || '—')}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Agency</h4><p>${esc(u.agency || '—')}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Country</h4><p>${esc(u.country || '—')}</p></div></div>
-        <div class="sec-row"><div class="sec-info"><h4>Role</h4><p>${u.isAdmin ? 'Administrator' : 'AUS Agent'}</p></div></div>
+        <div class="sec-row"><div class="sec-info"><h4>Role</h4><p>${u.isSuperAdmin ? 'Superadmin' : u.isAdmin ? 'Administrator' : 'AUS Agent'}</p></div></div>
       </div>
 
       <div class="card">
@@ -806,61 +966,90 @@ function renderAdmin(v) {
 }
 
 async function loadAgents() {
+  const me = state.user || {};
   try {
     const res = await api('/api/admin/agents');
     const el = $('agentTable');
-    if (!res.data.length) { el.innerHTML = emptyInline('No agents yet.'); return; }
+    if (!res.data.length) { el.innerHTML = emptyInline('No accounts yet.'); return; }
     el.innerHTML = `<table class="table">
-      <thead><tr><th>Agent</th><th>Agency</th><th>2FA</th><th>Last login</th><th></th></tr></thead>
-      <tbody>${res.data.map((a) => `
-        <tr>
-          <td><b>${esc(a.username)}</b><br><span style="color:var(--slate);font-size:12px">${esc(a.email || '')}</span></td>
-          <td>${esc(a.agency || '—')}</td>
+      <thead><tr><th>Name</th><th>Contact</th><th>Country</th><th>Role</th><th>2FA</th><th></th></tr></thead>
+      <tbody>${res.data.map((a) => {
+        const roleTag = a.role === 'superadmin'
+          ? '<span class="tag role-super">Superadmin</span>'
+          : a.role === 'admin' ? '<span class="tag role-admin">Admin</span>' : '<span class="tag role-agent">Agent</span>';
+        const canManage = !a.isSuperAdmin && (me.isSuperAdmin || a.role !== 'admin');
+        return `<tr>
+          <td><b>${esc(a.name || a.username)}</b><br><span style="color:var(--slate);font-size:12px">@${esc(a.username)}</span></td>
+          <td>${esc(a.email || '—')}<br><span style="color:var(--slate);font-size:12px">${esc(a.phone || '')}</span></td>
+          <td>${esc(a.country || '—')}${a.agency ? '<br><span style="color:var(--slate);font-size:12px">' + esc(a.agency) + '</span>' : ''}</td>
+          <td>${roleTag}</td>
           <td>${a.twoFA ? '<span class="tag green">On</span>' : '<span class="tag amber">Off</span>'}</td>
-          <td>${a.lastLogin ? fmtDate(a.lastLogin) : '—'}</td>
-          <td style="text-align:right">
-            <button class="btn btn-ghost btn-sm" onclick="resetAgentPrompt('${esc(a.username)}')">Reset password</button>
-            ${a.isAdmin ? '' : `<button class="btn btn-ghost btn-sm" onclick="deleteAgent('${esc(a.username)}')">Remove</button>`}
+          <td style="text-align:right;white-space:nowrap">
+            ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="resetAgentPrompt('${esc(a.username)}')">Reset password</button>` : ''}
+            ${me.isSuperAdmin && !a.isSuperAdmin ? `<button class="btn btn-ghost btn-sm" onclick="toggleAgentRole('${esc(a.username)}', ${a.role === 'admin' ? 'false' : 'true'})">${a.role === 'admin' ? 'Remove admin' : 'Make admin'}</button>` : ''}
+            ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="deleteAgent('${esc(a.username)}')">Remove</button>` : ''}
           </td>
-        </tr>`).join('')}</tbody>
+        </tr>`;
+      }).join('')}</tbody>
     </table>`;
   } catch (e) { $('agentTable').innerHTML = emptyInline(friendlyError(e)); }
 }
 
+async function toggleAgentRole(username, isAdmin) {
+  try {
+    await api('/api/admin/agents/role', { method: 'POST', body: { username, isAdmin } });
+    toast(isAdmin ? 'Promoted to administrator.' : 'Administrator access removed.', 'ok');
+    loadAgents();
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.toggleAgentRole = toggleAgentRole;
+
 function newAgentPrompt() {
+  const me = state.user || {};
   openModal(`
-    <h2>Add an agent</h2>
-    <p class="modal-sub">Create login credentials for a selected agent. No public sign-up is allowed.</p>
+    <h2>Add an account</h2>
+    <p class="modal-sub">Create login credentials for a selected agent. Fields marked * are required.</p>
     <div class="field-row">
-      <div class="field"><label>Username *</label><input id="naUser" placeholder="e.g. agenthause"></div>
-      <div class="field"><label>Email</label><input id="naEmail" type="email" placeholder="agent@agency.com"></div>
+      <div class="field"><label>Full name <span class="req">*</span></label><input id="naName" placeholder="e.g. Maria Rossi"></div>
+      <div class="field"><label>Email <span class="req">*</span></label><input id="naEmail" type="email" placeholder="agent@agency.com"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Phone <span class="req">*</span></label><input id="naPhone" placeholder="+961 …"></div>
+      ${countryField('naCountry', 'Country')}
     </div>
     <div class="field-row">
       <div class="field"><label>Agency</label><input id="naAgency" placeholder="Agency name"></div>
-      <div class="field"><label>Country</label><input id="naCountry" placeholder="Country"></div>
+      <div class="field"><label>Username <span class="req">*</span></label><input id="naUser" placeholder="login name"></div>
     </div>
-    <div class="field"><label>Temporary password *</label><input id="naPass" placeholder="At least 8 characters"></div>
-    <label style="display:flex;gap:9px;align-items:center;font-size:13px;color:var(--ink-soft)"><input type="checkbox" id="naAdmin" style="width:auto"> Grant administrator access</label>
+    <div class="field"><label>Temporary password <span class="req">*</span></label><input id="naPass" placeholder="At least 8 characters"></div>
+    ${me.isSuperAdmin ? `<label style="display:flex;gap:9px;align-items:center;font-size:13px;color:var(--ink-soft);margin-top:4px"><input type="checkbox" id="naAdmin" style="width:auto"> Grant administrator access</label>` : ''}
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="createAgent()"><span>Create agent</span></button>
+      <button class="btn btn-primary" onclick="createAgent()"><span>Create account</span></button>
     </div>`);
 }
 window.newAgentPrompt = newAgentPrompt;
 
 async function createAgent() {
+  const country = ($('naCountry').dataset.value || $('naCountry').value || '').trim();
+  const known = COUNTRIES.some((c) => c.name.toLowerCase() === country.toLowerCase());
   const body = {
-    username: $('naUser').value.trim().toLowerCase(),
+    name: $('naName').value.trim(),
     email: $('naEmail').value.trim(),
+    phone: $('naPhone').value.trim(),
+    country,
     agency: $('naAgency').value.trim(),
-    country: $('naCountry').value.trim(),
+    username: $('naUser').value.trim().toLowerCase(),
     password: $('naPass').value,
-    isAdmin: $('naAdmin').checked,
+    isAdmin: $('naAdmin') ? $('naAdmin').checked : false,
   };
-  if (!body.username || body.password.length < 8) { toast('Username and an 8+ character password are required.', 'err'); return; }
+  if (!body.name || !body.email || !body.phone || !body.country) { toast('Full name, email, phone and country are required.', 'err'); return; }
+  if (!known) { toast('Please choose the country from the list.', 'err'); return; }
+  if (!body.username || body.password.length < 8) { toast('A username and an 8+ character password are required.', 'err'); return; }
+  if (DEMO_MODE) { toast('Demo mode: accounts are not stored. Connect the worker.', 'info'); closeModal(); return; }
   try {
     await api('/api/admin/agents', { method: 'POST', body });
-    closeModal(); toast('Agent created.', 'ok'); loadAgents();
+    closeModal(); toast('Account created.', 'ok'); loadAgents();
   } catch (e) { toast(friendlyError(e), 'err'); }
 }
 window.createAgent = createAgent;

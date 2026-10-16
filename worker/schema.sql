@@ -2,19 +2,22 @@
 -- Apply with:  npx wrangler d1 execute aus-agent-portal --remote --file schema.sql
 
 CREATE TABLE IF NOT EXISTS users (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  username     TEXT UNIQUE NOT NULL,
-  email        TEXT UNIQUE,
-  pass_hash    TEXT NOT NULL,
-  salt         TEXT NOT NULL,
-  is_admin     INTEGER NOT NULL DEFAULT 0,
-  status       TEXT NOT NULL DEFAULT 'active',
-  agency       TEXT,
-  country      TEXT,
-  totp_secret  TEXT,
-  totp_enabled INTEGER NOT NULL DEFAULT 0,
-  last_login   TEXT,
-  created_at   TEXT NOT NULL
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  username      TEXT UNIQUE NOT NULL,
+  name          TEXT,
+  email         TEXT UNIQUE,
+  phone         TEXT,
+  pass_hash     TEXT NOT NULL,
+  salt          TEXT NOT NULL,
+  is_admin      INTEGER NOT NULL DEFAULT 0,
+  is_superadmin INTEGER NOT NULL DEFAULT 0,
+  status        TEXT NOT NULL DEFAULT 'active',
+  agency        TEXT,
+  country       TEXT,
+  totp_secret   TEXT,
+  totp_enabled  INTEGER NOT NULL DEFAULT 0,
+  last_login    TEXT,
+  created_at    TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

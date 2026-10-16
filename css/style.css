@@ -373,6 +373,36 @@ img { display: block; max-width: 100%; }
 .toast.out { animation: toastOut 0.3s var(--ease) forwards; }
 @keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
 
+/* ---------- Brand logos ---------- */
+.auth-logo { height: clamp(38px, 4vw, 48px); width: auto; }
+.auth-card-logo { height: 28px; width: auto; margin-bottom: 16px; }
+.sidebar-logo { height: 28px; width: auto; margin-bottom: 6px; }
+
+/* ---------- Searchable country combobox ---------- */
+.combo { position: relative; }
+.combo-list {
+  position: absolute; z-index: 95; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 224px; overflow-y: auto; background: #fff; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md); padding: 4px; display: none;
+}
+.combo-list.open { display: block; }
+.combo-opt { padding: 9px 12px; font-size: 14px; border-radius: 7px; cursor: pointer; color: var(--navy); }
+.combo-opt:hover, .combo-opt.active { background: rgba(34, 41, 95, 0.07); }
+.combo-opt .cc { color: var(--slate); font-size: 12px; margin-left: 6px; }
+.combo-empty { padding: 10px 12px; font-size: 13px; color: var(--slate); }
+
+/* role badges */
+.tag.role-super { background: #111827; color: var(--yellow); }
+.tag.role-admin { background: rgba(190, 31, 61, 0.12); color: var(--crimson); }
+.tag.role-agent { background: rgba(34, 41, 95, 0.08); color: var(--navy); }
+
+/* required-field marker */
+.field label .req { color: var(--crimson); margin-left: 2px; }
+
+/* HubSpot embed */
+.hs-embed { min-height: 420px; }
+.hs-embed .hs-form-frame { min-height: 420px; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }

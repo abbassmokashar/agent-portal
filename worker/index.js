@@ -90,10 +90,11 @@ async function route(request, env, url) {
   if (path.startsWith('/api/admin/')) {
     if (!user.is_admin) return json({ error: 'forbidden' }, 403);
 
-    if (path === '/api/admin/agents' && method === 'GET') return listAgents(env);
+    if (path === '/api/admin/agents' && method === 'GET') return listAgents(env, user);
     if (path === '/api/admin/agents' && method === 'POST') return createAgent(request, env, user);
     if (path === '/api/admin/agents' && method === 'DELETE') return deleteAgent(env, url, user);
     if (path === '/api/admin/agents/password' && method === 'POST') return setAgentPassword(request, env, user);
+    if (path === '/api/admin/agents/role' && method === 'POST') return setAgentRole(request, env, user);
 
     if (path === '/api/admin/content' && method === 'PUT') return putContent(request, env, user);
 
@@ -285,8 +286,11 @@ async function createSession(env, user, device) {
 function publicUser(u) {
   return {
     username: u.username,
+    name: u.name || '',
     email: u.email,
+    phone: u.phone || '',
     isAdmin: !!u.is_admin,
+    isSuperAdmin: !!u.is_superadmin,
     agency: u.agency || '',
     country: u.country || '',
     twoFA: !!u.totp_enabled,
@@ -315,9 +319,9 @@ async function bootstrapAdmin(request, env) {
 
   const { salt, hash } = await hashPassword(password);
   await env.DB.prepare(
-    'INSERT INTO users (username, email, pass_hash, salt, is_admin, status, created_at) VALUES (?,?,?,?,1,?,?)'
+    'INSERT INTO users (username, name, email, pass_hash, salt, is_admin, is_superadmin, status, created_at) VALUES (?,?,?,?,?,1,1,?,?)'
   )
-    .bind(username, email, hash, salt, 'active', nowIso())
+    .bind(username, String(body.name || 'Administrator'), email, hash, salt, 'active', nowIso())
     .run();
   const user = await env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
   const session = await createSession(env, user, 'Setup');
@@ -515,48 +519,62 @@ function resetEmailHtml(link) {
 // ---------------------------------------------------------------------------
 //  Admin — agent management
 // ---------------------------------------------------------------------------
-async function listAgents(env) {
+async function listAgents(env, admin) {
   const rows = await env.DB.prepare(
-    'SELECT id, username, email, agency, country, is_admin, status, totp_enabled, created_at, last_login FROM users ORDER BY created_at DESC'
+    'SELECT id, username, name, email, phone, agency, country, is_admin, is_superadmin, status, totp_enabled, created_at, last_login FROM users ORDER BY created_at DESC'
   ).all();
-  const data = (rows.results || []).map((u) => ({
-    username: u.username,
-    email: u.email,
-    agency: u.agency || '',
-    country: u.country || '',
-    isAdmin: !!u.is_admin,
-    status: u.status,
-    twoFA: !!u.totp_enabled,
-    created: u.created_at,
-    lastLogin: u.last_login || null,
-  }));
+  const data = (rows.results || [])
+    // The superadmin is invisible to everyone except another superadmin.
+    .filter((u) => admin.is_superadmin || !u.is_superadmin)
+    .map((u) => ({
+      username: u.username,
+      name: u.name || '',
+      email: u.email || '',
+      phone: u.phone || '',
+      agency: u.agency || '',
+      country: u.country || '',
+      role: u.is_superadmin ? 'superadmin' : u.is_admin ? 'admin' : 'agent',
+      isAdmin: !!u.is_admin,
+      isSuperAdmin: !!u.is_superadmin,
+      status: u.status,
+      twoFA: !!u.totp_enabled,
+      created: u.created_at,
+      lastLogin: u.last_login || null,
+    }));
   return json({ ok: true, data });
 }
 
 async function createAgent(request, env, admin) {
   const body = await request.json().catch(() => ({}));
   const username = String(body.username || '').trim().toLowerCase();
+  const name = String(body.name || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
+  const phone = String(body.phone || '').trim();
+  const country = String(body.country || '').trim();
   const password = String(body.password || '');
+
+  // Name, email, phone and country are mandatory.
+  if (!name || !email || !phone || !country) return json({ error: 'missing_fields' }, 400);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'invalid_email' }, 400);
   if (!username || password.length < 8) return json({ error: 'weak_input' }, 400);
+
+  // Only a superadmin may create other administrators.
+  const makeAdmin = !!body.isAdmin;
+  if (makeAdmin && !admin.is_superadmin) return json({ error: 'forbidden' }, 403);
 
   const exists = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
   if (exists) return json({ error: 'username_taken' }, 409);
+  const emailExists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (emailExists) return json({ error: 'email_taken' }, 409);
 
   const { salt, hash } = await hashPassword(password);
   await env.DB.prepare(
-    'INSERT INTO users (username, email, pass_hash, salt, agency, country, is_admin, status, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
+    'INSERT INTO users (username, name, email, phone, pass_hash, salt, agency, country, is_admin, is_superadmin, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,0,?,?)'
   )
     .bind(
-      username,
-      email,
-      hash,
-      salt,
-      String(body.agency || ''),
-      String(body.country || ''),
-      body.isAdmin ? 1 : 0,
-      'active',
-      nowIso()
+      username, name, email, phone, hash, salt,
+      String(body.agency || ''), country,
+      makeAdmin ? 1 : 0, 'active', nowIso()
     )
     .run();
   return json({ ok: true, createdBy: admin.username });
@@ -566,8 +584,13 @@ async function deleteAgent(env, url, admin) {
   const username = (url.searchParams.get('username') || '').toLowerCase();
   if (!username) return json({ error: 'missing_username' }, 400);
   if (username === admin.username) return json({ error: 'cannot_delete_self' }, 400);
-  const user = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
+
+  const user = await env.DB.prepare('SELECT id, is_admin, is_superadmin FROM users WHERE username = ?').bind(username).first();
   if (!user) return json({ error: 'not_found' }, 404);
+  if (user.is_superadmin) return json({ error: 'protected' }, 403);
+  // Only a superadmin can remove another administrator.
+  if (user.is_admin && !admin.is_superadmin) return json({ error: 'forbidden' }, 403);
+
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id).run();
   return json({ ok: true });
@@ -578,14 +601,31 @@ async function setAgentPassword(request, env, admin) {
   const username = String(body.username || '').toLowerCase();
   const password = String(body.password || '');
   if (!username || password.length < 8) return json({ error: 'weak_input' }, 400);
-  const user = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
+
+  const user = await env.DB.prepare('SELECT id, is_admin, is_superadmin FROM users WHERE username = ?').bind(username).first();
   if (!user) return json({ error: 'not_found' }, 404);
+  if (user.is_superadmin && !admin.is_superadmin) return json({ error: 'forbidden' }, 403);
+  if (user.is_admin && !admin.is_superadmin) return json({ error: 'forbidden' }, 403);
+
   const { salt, hash } = await hashPassword(password);
   await env.DB.prepare('UPDATE users SET pass_hash = ?, salt = ? WHERE id = ?')
     .bind(hash, salt, user.id)
     .run();
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
   return json({ ok: true, updatedBy: admin.username });
+}
+
+// Superadmin-only: promote an agent to admin, or demote an admin back to agent.
+async function setAgentRole(request, env, admin) {
+  if (!admin.is_superadmin) return json({ error: 'forbidden' }, 403);
+  const body = await request.json().catch(() => ({}));
+  const username = String(body.username || '').toLowerCase();
+  const isAdmin = !!body.isAdmin;
+  const user = await env.DB.prepare('SELECT id, is_superadmin FROM users WHERE username = ?').bind(username).first();
+  if (!user) return json({ error: 'not_found' }, 404);
+  if (user.is_superadmin) return json({ error: 'protected' }, 403);
+  await env.DB.prepare('UPDATE users SET is_admin = ? WHERE id = ?').bind(isAdmin ? 1 : 0, user.id).run();
+  return json({ ok: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -812,63 +852,31 @@ const DEFAULT_CONTENT = {
     },
   ],
   programmes: [
-    {
-      id: 'p1',
-      level: 'Bachelor',
-      title: 'Hospitality Management',
-      region: 'Switzerland',
-      duration: '3 years',
-      language: 'English',
-      intakes: 'January · September',
-      fees: 'CHF 24,900 / year',
-      description:
-        'Practice-led hospitality degree on the Swiss Riviera with paid internship options and industry placements.',
-    },
-    {
-      id: 'p2',
-      level: 'Bachelor',
-      title: 'Business Administration',
-      region: 'Switzerland',
-      duration: '3 years',
-      language: 'English',
-      intakes: 'January · September',
-      fees: 'CHF 22,900 / year',
-      description:
-        'Core business foundations with specialisations in marketing, finance and entrepreneurship.',
-    },
-    {
-      id: 'p3',
-      level: 'Master',
-      title: 'Business Administration (MBA)',
-      region: 'Switzerland',
-      duration: '18 months',
-      language: 'English',
-      intakes: 'January · September',
-      fees: 'CHF 29,500 total',
-      description: 'Executive-format MBA for working professionals and career changers.',
-    },
-    {
-      id: 'p4',
-      level: 'Doctorate',
-      title: 'Doctor of Business Administration (DBA)',
-      region: 'Switzerland',
-      duration: '3 years',
-      language: 'English',
-      intakes: 'Rolling',
-      fees: 'On request',
-      description: 'Research-based doctorate for senior practitioners and consultants.',
-    },
-    {
-      id: 'p5',
-      level: 'Diploma',
-      title: 'Swiss Federal Diploma',
-      region: 'Switzerland',
-      duration: '2 years',
-      language: 'English',
-      intakes: 'September',
-      fees: 'CHF 18,500 / year',
-      description: 'Federally recognised diploma combining theory with a structured apprenticeship.',
-    },
+    // ----- Bachelor's (3 years) -----
+    { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The language of business, mastered.' },
+    { id: 'p2', level: 'Bachelor', title: 'Business Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Lead organizations from day one.' },
+    { id: 'p3', level: 'Bachelor', title: 'Healthcare Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Healthcare needs better leaders.' },
+    { id: 'p4', level: 'Bachelor', title: 'Human Resource Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'People are the strategy.' },
+    { id: 'p5', level: 'Bachelor', title: 'Integrated & Digital Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Strategy meets execution.' },
+    { id: 'p6', level: 'Bachelor', title: 'International Business', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Think beyond borders.' },
+    { id: 'p7', level: 'Bachelor', title: 'Sports Management — Athletic Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Run the game, not the sidelines.' },
+    { id: 'p8', level: 'Bachelor', title: 'Sports Management — Sports Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Build brands that move people.' },
+    { id: 'p9', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 30,000 / year', description: 'Excellence is the experience.' },
+    { id: 'p10', level: 'Bachelor', title: 'Aviation Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The business of getting there.' },
+    // ----- Master's (2 years) -----
+    { id: 'p11', level: 'Master', title: 'Finance', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Markets reward precision.' },
+    { id: 'p12', level: 'Master', title: 'Data Analytics', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Turn noise into signal.' },
+    { id: 'p13', level: 'Master', title: 'Healthcare Administration', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Systems that save lives.' },
+    { id: 'p14', level: 'Master', title: 'Human Resource Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Talent is the competitive edge.' },
+    { id: 'p15', level: 'Master', title: 'International Business', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Lead across markets.' },
+    { id: 'p16', level: 'Master', title: 'Leadership & Change', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Move organizations forward.' },
+    { id: 'p17', level: 'Master', title: 'Sports Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'The business behind the game.' },
+    { id: 'p18', level: 'Master', title: 'Strategic Brand & Digital Marketing', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Brand is the business model.' },
+    { id: 'p19', level: 'Master', title: 'Aviation Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Altitude requires strategy.' },
+    // ----- Doctorate -----
+    { id: 'p20', level: 'Doctorate', title: 'Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 26,000 / year', description: 'Original research that advances practice for experienced leaders.' },
+    // ----- Swiss Federal Diploma -----
+    { id: 'p21', level: 'Diploma', title: 'Swiss Federal Diploma — Business Administration', region: 'Switzerland', duration: '2 years (part-time)', language: 'English', intakes: 'September', fees: 'CHF 28,000 / year', description: 'The nationally recognized Swiss professional qualification, valued across European industries.' },
   ],
   regions: [
     { id: 'r1', name: 'Switzerland', blurb: 'Campus in Montreux on the Swiss Riviera. On-campus and blended delivery.' },
