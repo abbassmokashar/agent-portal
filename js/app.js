@@ -720,7 +720,9 @@ function renderContracts(v) {
     <div class="card" style="margin-bottom:20px">
       <div style="display:flex;gap:14px;align-items:flex-start">
         <i class="fa-solid fa-circle-info" style="color:var(--crimson);font-size:18px;margin-top:2px"></i>
-        <p style="font-size:13.5px">Agreements and policies shared with your account. Documents assigned to you are private — no other agent can see them.</p>
+        <p style="font-size:13.5px">${u.isAdmin
+          ? 'Manage contracts and policies. Upload a document for all agents or one person, and rename, replace, reassign or delete any document at any time.'
+          : 'Agreements and policies shared with your account. Documents assigned to you are private — no other agent can see them.'}</p>
       </div>
       <div style="margin-top:14px">
         ${u.isAdmin
@@ -736,7 +738,6 @@ async function loadContracts() {
   const el = $('contractList');
   if (!el) return;
   const u = state.user || {};
-  const contentDocs = (C().contracts || []).map((c) => ({ ...c, kind: 'content' }));
   let fileDocs = [];
   if (!DEMO_MODE) {
     try {
@@ -747,22 +748,25 @@ async function loadContracts() {
       }));
     } catch { /* fall back to content documents */ }
   }
+  const contentDocs = DEMO_MODE ? (C().contracts || []).map((c) => ({ ...c, kind: 'content' })) : [];
   const list = [...fileDocs, ...contentDocs];
   el.innerHTML = list.length ? `<div class="item-list">
       ${list.map((c) => {
         const mine = c.kind === 'file' && (u.isAdmin || c.uploadedBy === u.username);
-        const assigned = c.kind === 'file'
-          ? (c.assignedTo ? (c.assignedTo === u.username ? 'Assigned to you' : 'Assigned to ' + c.assignedTo) : 'All agents')
-          : 'All agents';
+        const assigned = c.assignedTo
+          ? (c.assignedTo === u.username ? 'Assigned to you' : 'Assigned to ' + c.assignedTo)
+          : 'All agents (public)';
+        const visibility = u.isAdmin && c.kind === 'file' ? `<span class="tag">${esc(assigned)}</span>` : '';
         return `<div class="item">
           <div class="item-icon"><i class="fa-solid fa-file-signature"></i></div>
           <div class="item-body">
             <h4>${esc(c.title)}</h4>
             <p>${esc(c.note || '')}</p>
-            <div class="item-meta"><span class="tag">${esc(assigned)}</span>${c.size ? `<span>${esc(c.size)}</span>` : ''}<span>Updated ${fmtDate(c.updated)}</span></div>
+            <div class="item-meta">${visibility}${c.size ? `<span>${esc(c.size)}</span>` : ''}<span>Updated ${fmtDate(c.updated)}</span></div>
           </div>
           <div class="item-actions">
             <button class="btn btn-navy btn-sm" onclick="openFile('${esc(c.url)}','${esc(c.title)}')"><i class="fa-solid fa-download"></i><span>Download</span></button>
+            ${u.isAdmin && c.kind === 'file' ? `<button class="btn btn-ghost btn-sm" onclick="editContractPrompt('${esc(c.id)}')"><span>Edit</span></button>` : ''}
             ${mine ? `<button class="btn btn-ghost btn-sm" onclick="deleteContract('${esc(c.id)}')"><span>Delete</span></button>` : ''}
           </div>
         </div>`;
@@ -828,6 +832,60 @@ async function uploadMyContract() {
 }
 window.uploadMyContract = uploadMyContract;
 
+async function editContractPrompt(id) {
+  let file = null;
+  let agents = [];
+  try {
+    const res = await api('/api/files?category=contracts');
+    file = (res.data || []).find((f) => f.id === id);
+    const ar = await api('/api/admin/agents');
+    agents = (ar.data || []).filter((a) => a.role === 'agent');
+  } catch (e) { toast(friendlyError(e), 'err'); return; }
+  if (!file) { toast('That document no longer exists.', 'err'); return; }
+  openModal(`
+    <h2>Edit document</h2>
+    <p class="modal-sub">Rename it, replace the PDF, or change who can see it.</p>
+    <div class="field"><label>Display name</label><input id="ecName" value="${esc(file.name)}"></div>
+    <div class="field"><label>Visible to</label>
+      <select id="ecAssign">
+        <option value="">All agents (public)</option>
+        ${agents.map((a) => `<option value="${esc(a.username)}" ${file.assignedTo === a.username ? 'selected' : ''}>${esc(a.name || a.username)} (@${esc(a.username)})</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Replace PDF (optional)</label><input id="ecFile" type="file" accept=".pdf,application/pdf">
+      <p class="field-hint">Leave empty to keep the current file.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContractEdit('${esc(id)}')"><span>Save changes</span></button>
+    </div>`, true);
+}
+window.editContractPrompt = editContractPrompt;
+
+async function saveContractEdit(id) {
+  const name = $('ecName').value.trim();
+  const assignedTo = $('ecAssign').value;
+  const file = $('ecFile') && $('ecFile').files ? $('ecFile').files[0] : null;
+  if (!name) { toast('Enter a display name.', 'err'); return; }
+  try {
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('category', 'contracts');
+      fd.append('name', name);
+      fd.append('assignedTo', assignedTo);
+      await api('/api/admin/files', { method: 'POST', body: fd });
+      await api('/api/admin/files/' + encodeURIComponent(id), { method: 'DELETE' });
+    } else {
+      await api('/api/admin/files/' + encodeURIComponent(id), { method: 'PATCH', body: { name, assignedTo } });
+    }
+    closeModal();
+    toast('Document updated.', 'ok');
+    renderContracts($('view'));
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.saveContractEdit = saveContractEdit;
+
 async function deleteContract(id) {
   if (!confirm('Delete this document? This cannot be undone.')) return;
   try {
@@ -860,73 +918,80 @@ function renderMedia(v) {
 }
 
 /* ---------------------------------------------------------------------------
-   View: Applications
+   View: Applications — choose AUS or HBS, then use the HubSpot forms.
    --------------------------------------------------------------------------- */
-function submissionsHtml() {
-  const apps = state.apps.length ? state.apps : state.localApps;
-  return `
-    <div>
-      <div class="section-head"><div><h2>Your submissions</h2><p>Applications you've sent to AUS.</p></div></div>
-      <div class="item-list" id="appList">
-        ${apps.length ? apps.slice().reverse().map((a) => `
-          <div class="item">
-            <div class="item-icon"><i class="fa-solid fa-user-graduate"></i></div>
-            <div class="item-body">
-              <h4>${esc(a.studentName)}</h4>
-              <p>${esc(a.programme || 'Specialization TBC')} · ${esc(a.intake || '')}</p>
-              <div class="item-meta"><span>Sent ${fmtDate(a.created)}</span></div>
-            </div>
-            <span class="tag ${a.status === 'new' ? 'amber' : 'green'}">${esc(a.status)}</span>
-          </div>`).join('') : emptyInline('You have not submitted any applications yet.')}
-      </div>
-    </div>`;
-}
-
-async function loadMyApps() {
-  if (DEMO_MODE || !state.token) return;
-  try {
-    const res = await api('/api/applications');
-    state.apps = (res.data || []).map((a) => ({
-      studentName: a.student_name, programme: a.programme, intake: a.intake,
-      status: a.status, created: a.created_at,
-    }));
-    const el = $('appList');
-    if (el) {
-      const wrap = el.parentElement;
-      if (wrap) wrap.outerHTML = submissionsHtml();
-    }
-  } catch { /* keep whatever is already shown */ }
-}
+const APPLY_ORGS = {
+  aus: {
+    key: 'aus',
+    name: 'AUS Business School',
+    tagline: 'Montreux, Switzerland',
+    logo: 'assets/img/aus-logo.png',
+    portalId: '26727484',
+    forms: [
+      { key: 'application', title: 'Application form', desc: 'Submit a student application to AUS.', formId: 'f2017c5b-ccee-44ae-8891-d1d7ae75ffac' },
+      { key: 'scholarship', title: 'Scholarship form', desc: 'Apply for an AUS scholarship on behalf of a student.', formId: '7728ed02-99f6-4d6b-8710-15d38d35494b' },
+    ],
+  },
+  hbs: {
+    key: 'hbs',
+    name: 'Helvetic Business School',
+    tagline: 'Vevey, Switzerland',
+    logo: 'assets/img/hbs-logo.svg',
+    portalId: '26860432',
+    forms: [
+      { key: 'application', title: 'Application form', desc: 'Submit a student application to HBS.', formId: '97d88161-bcef-4127-a138-8c7b332097de' },
+      { key: 'scholarship', title: 'Scholarship form', desc: 'Apply for an HBS scholarship on behalf of a student.', formId: '49961bf1-e614-4c45-a916-b27520eef20d' },
+    ],
+  },
+};
+let applyOrg = null;
 
 function renderApply(v) {
-  const HS = CFG.HUBSPOT || {};
-  if (HS.enabled && HS.portalId && HS.formId) { renderApplyHubspot(v, HS); return; }
-
-  const programmes = (C().programmes || []).map((p) => `<option value="${esc(p.title)}">${esc(p.level)} · ${esc(p.title)}</option>`).join('');
+  if (applyOrg && APPLY_ORGS[applyOrg]) { renderApplyOrg(v, APPLY_ORGS[applyOrg]); return; }
   v.innerHTML = `
-    <div class="grid cols-2" style="align-items:start">
-      <div class="card">
-        <h3 style="margin-bottom:6px">Submit a student application</h3>
-        <p style="font-size:13px;margin-bottom:20px">Fill this in and AUS will follow up with you and the student. Fields marked * are required.</p>
-        <div class="field-row">
-          <div class="field"><label>Student full name <span class="req">*</span></label><input id="apName" placeholder="First and last name"></div>
-          <div class="field"><label>Student email</label><input id="apEmail" type="email" placeholder="student@email.com"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Phone</label><input id="apPhone" placeholder="+961 …"></div>
-          <div class="field"><label>Nationality</label><input id="apNat" placeholder="e.g. Lebanese"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Specialization</label><select id="apProgramme"><option value="">Select a specialization…</option>${programmes}</select></div>
-          <div class="field"><label>Intake</label><select id="apIntake">${nextIntakes().map((i) => `<option>${i}</option>`).join('')}<option>Other / to discuss</option></select></div>
-        </div>
-        <div class="field"><label>Notes / context</label><textarea id="apNotes" placeholder="Grades, English level, budget, preferred start date…"></textarea></div>
-        <button class="btn btn-primary btn-block" onclick="submitApplication()"><i class="fa-solid fa-paper-plane"></i><span>Submit application</span></button>
-      </div>
-      ${submissionsHtml()}
+    <div class="section-head"><div><h2>Where should the student apply?</h2><p>Choose a school to open its application and scholarship forms.</p></div></div>
+    <div class="apply-org-grid">
+      ${Object.values(APPLY_ORGS).map((o) => `
+        <button class="apply-org-card" onclick="chooseApplyOrg('${o.key}')">
+          <span class="apply-org-logo"><img src="${esc(o.logo)}" alt="${esc(o.name)}"></span>
+          <h3>${esc(o.name)}</h3>
+          <p>${esc(o.tagline)}</p>
+          <span class="btn btn-outline btn-sm">Continue <i class="fa-solid fa-arrow-right"></i></span>
+        </button>`).join('')}
     </div>`;
-  loadMyApps();
 }
+
+function renderApplyOrg(v, org) {
+  v.innerHTML = `
+    <button class="link-btn" onclick="backToApplyOrgs()"><i class="fa-solid fa-arrow-left"></i> Choose another school</button>
+    <div class="apply-head">
+      <img src="${esc(org.logo)}" alt="${esc(org.name)}">
+      <div><h2>${esc(org.name)}</h2><p>${esc(org.tagline)} · complete an application or scholarship form below.</p></div>
+    </div>
+    <div class="grid cols-2" style="align-items:start">
+      ${org.forms.map((f) => `
+        <div class="card">
+          <h3>${esc(f.title)}</h3>
+          <p style="font-size:13px;margin-bottom:16px">${esc(f.desc)}</p>
+          <div class="hs-embed" id="hs_${org.key}_${f.key}"></div>
+        </div>`).join('')}
+    </div>`;
+  renderHubspotForms(org);
+}
+
+function chooseApplyOrg(key) {
+  if (!APPLY_ORGS[key]) return;
+  applyOrg = key;
+  renderApply($('view'));
+  window.scrollTo(0, 0);
+}
+window.chooseApplyOrg = chooseApplyOrg;
+
+function backToApplyOrgs() {
+  applyOrg = null;
+  renderApply($('view'));
+}
+window.backToApplyOrgs = backToApplyOrgs;
 
 let _hubspotLoaded = null;
 function loadHubspotScript() {
@@ -934,7 +999,7 @@ function loadHubspotScript() {
   _hubspotLoaded = new Promise((resolve, reject) => {
     if (window.hbspt && window.hbspt.forms) return resolve();
     const s = document.createElement('script');
-    s.src = 'https://js.hsforms.net/forms/embed/v2.js';
+    s.src = 'https://js-eu1.hsforms.net/forms/embed/v2.js';
     s.async = true;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('hubspot_load_failed'));
@@ -943,57 +1008,23 @@ function loadHubspotScript() {
   return _hubspotLoaded;
 }
 
-function renderApplyHubspot(v, HS) {
-  v.innerHTML = `
-    <div class="grid cols-2" style="align-items:start">
-      <div class="card">
-        <h3 style="margin-bottom:6px">Submit a student application</h3>
-        <p style="font-size:13px;margin-bottom:16px">Complete the form below — AUS will follow up with you and the student.</p>
-        <div class="hs-embed" id="hubspotForm"></div>
-      </div>
-      ${submissionsHtml()}
-    </div>`;
-  loadMyApps();
+function renderHubspotForms(org) {
   loadHubspotScript()
     .then(() => {
-      if (window.hbspt && window.hbspt.forms) {
-        window.hbspt.forms.create({
-          region: HS.region || 'eu1',
-          portalId: HS.portalId,
-          formId: HS.formId,
-          target: '#hubspotForm',
-        });
-      }
+      if (!(window.hbspt && window.hbspt.forms)) throw new Error('hubspot_unavailable');
+      org.forms.forEach((f) => {
+        const target = '#hs_' + org.key + '_' + f.key;
+        if (!document.querySelector(target)) return;
+        window.hbspt.forms.create({ region: 'eu1', portalId: org.portalId, formId: f.formId, target });
+      });
     })
     .catch(() => {
-      $('hubspotForm').innerHTML = '<div class="empty"><i class="fa-solid fa-triangle-exclamation"></i><h3>HubSpot form unavailable</h3><p>Check the portalId and formId in <code>js/config.js</code>.</p></div>';
+      org.forms.forEach((f) => {
+        const el = document.querySelector('#hs_' + org.key + '_' + f.key);
+        if (el) el.innerHTML = '<div class="empty"><i class="fa-solid fa-triangle-exclamation"></i><p>This form could not be loaded. Please refresh the page or contact AUS.</p></div>';
+      });
     });
 }
-
-async function submitApplication() {
-  const name = $('apName').value.trim();
-  if (!name) { toast('Please enter the student name.', 'err'); return; }
-  const payload = {
-    studentName: name,
-    studentEmail: $('apEmail').value.trim(),
-    studentPhone: $('apPhone').value.trim(),
-    nationality: $('apNat').value.trim(),
-    programme: $('apProgramme').value,
-    intake: $('apIntake').value,
-    notes: $('apNotes').value.trim(),
-  };
-  try {
-    if (!DEMO_MODE) await api('/api/applications', { method: 'POST', body: payload });
-    const record = { ...payload, id: 'local-' + Date.now(), status: 'new', created: new Date().toISOString() };
-    state.localApps.push(record);
-    localStorage.setItem('aus_portal_apps', JSON.stringify(state.localApps));
-    toast('Application submitted. AUS will follow up shortly.', 'ok');
-    renderApply($('view'));
-  } catch (e) {
-    toast(friendlyError(e), 'err');
-  }
-}
-window.submitApplication = submitApplication;
 
 /* ---------------------------------------------------------------------------
    View: Commissions

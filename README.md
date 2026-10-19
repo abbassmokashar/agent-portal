@@ -38,7 +38,7 @@ creates each agent's credentials in the Admin view.
 - **Brochures** — downloadable, filterable by region; real PDFs included
 - **Contracts** — global documents plus per-agent uploads (agent uploads are private)
 - **Media library** — photos, articles and marketing assets
-- **Applications** — agents submit student applications; admins see all, agents see their own
+- **Applications** — agents choose AUS or Helvetic Business School, then complete the application and scholarship forms embedded from HubSpot
 - **Commissions** — agents request commissions/invoices; finance tracks status
 - **Email notifications** — first-login opt-in with unsubscribe; transactional email via Resend
 - **Swiss details** — CHF formatting (`28'000`), January/April/September intakes derived from today's date, live Montreux clock and booking links
@@ -178,21 +178,13 @@ When adding an account, **full name, email, phone and country are required**, pl
 a username and an 8+ character password. Country is chosen from a searchable
 dropdown.
 
-### Optional: HubSpot application form
+### HubSpot application and scholarship forms
 
-The Applications view ships with a built-in form. To swap it for a HubSpot form,
-edit `js/config.js`:
-
-```js
-HUBSPOT: {
-  enabled: true,
-  portalId: '44876987',                 // HubSpot -> Marketing -> Forms -> Share
-  formId: 'a1b2c3d4-1234-5678-....',
-  region: 'eu1',                        // 'na1' | 'eu1' | 'ap1'
-},
-```
-
-No worker changes are needed — the HubSpot embed loads automatically.
+The Applications view first asks the agent to choose **AUS Business School** or
+**Helvetic Business School**, then shows that school's application and
+scholarship forms. The portal ids and form ids live in `APPLY_ORGS` near the top
+of the Applications section in `js/app.js` (region `eu1`). Replace those ids to
+swap a form; no worker changes are needed.
 
 ## Publish the front-end on GitHub Pages
 
