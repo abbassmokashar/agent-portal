@@ -1015,7 +1015,7 @@ function renderHubspotForms(org) {
       org.forms.forEach((f) => {
         const target = '#hs_' + org.key + '_' + f.key;
         if (!document.querySelector(target)) return;
-        window.hbspt.forms.create({ region: 'eu1', portalId: org.portalId, formId: f.formId, target });
+        window.hbspt.forms.create({ region: 'eu1', portalId: org.portalId, formId: f.formId, target, css: '' });
       });
     })
     .catch(() => {

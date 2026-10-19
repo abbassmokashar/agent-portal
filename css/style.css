@@ -564,6 +564,20 @@ img { display: block; max-width: 100%; }
   min-height: 44px;
 }
 .hs-embed .hs-form textarea.hs-input { min-height: 96px !important; resize: vertical; }
+.hs-embed .hs-form input[type="file"] {
+  font-family: var(--sans) !important; font-size: 13px !important; color: var(--ink-soft) !important;
+  width: 100% !important; padding: 0 !important; border: none !important; background: transparent !important;
+}
+.hs-embed .hs-form input[type="file"]::file-selector-button {
+  font-family: var(--sans) !important; font-size: 12.5px !important; font-weight: 600 !important;
+  color: var(--navy) !important; background: #fff !important;
+  border: 1px solid var(--line) !important; border-radius: 100px !important;
+  padding: 7px 14px !important; margin-right: 10px !important; cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.hs-embed .hs-form input[type="file"]::file-selector-button:hover {
+  border-color: var(--navy) !important; transform: translateY(-1px);
+}
 .hs-embed .hs-form select.hs-input { appearance: auto; }
 .hs-embed .hs-form input.hs-input:focus,
 .hs-embed .hs-form select.hs-input:focus,
