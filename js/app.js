@@ -14,6 +14,7 @@ const state = {
   content: null,
   view: 'dashboard',
   filters: {},
+  apps: [],
   localApps: JSON.parse(localStorage.getItem('aus_portal_apps') || '[]'),
   twofaChallenge: '',
 };
@@ -36,11 +37,11 @@ const DEMO_CONTENT = {
   ],
   offers: [
     { id: 'o1', active: true, badge: 'January 2027 intake',
-      title: 'CHF 1,000 commission bonus per new student',
+      title: "CHF 1'000 commission bonus per new student",
       subtitle: 'Celebrating our 50th Anniversary and building new agent relationships',
-      body: 'For every new student you recruit for the January 2027 intake, you earn an extra CHF 1,000 commission bonus — on top of your standard commission.',
+      body: "For every new student you recruit for the January 2027 intake, you earn an extra CHF 1'000 commission bonus — on top of your standard commission.",
       bullets: [
-        'CHF 1,000 bonus for every new student recruited for the January 2027 intake',
+        "CHF 1'000 bonus for every new student recruited for the January 2027 intake",
         'Applies to new agents and existing partners',
         'Follow-up from Jonathan Hilton with direct links to this offer',
       ],
@@ -48,7 +49,7 @@ const DEMO_CONTENT = {
       image: 'assets/media/offer-50th.svg' },
   ],
   brochures: [
-    { id: 'b1', title: 'AUS Global Brochure', programme: 'All programmes', region: 'Global',
+    { id: 'b1', title: 'AUS Global Brochure', programme: 'All specializations', region: 'Global',
       url: 'assets/brochures/AUS-Global-Brochure.pdf', size: '8.4 MB', updated: '2026-10-01' },
     { id: 'b2', title: 'Hospitality Management 2027', programme: 'Bachelor · Hospitality Management', region: 'Switzerland',
       url: 'assets/brochures/AUS-Hospitality-Management-Brochure-2027.pdf', size: '1.4 MB', updated: '2026-10-01' },
@@ -58,27 +59,27 @@ const DEMO_CONTENT = {
     { id: 'c2', title: 'Student Enrolment Contract (template)', note: 'Template enrolment contract to share with students before registration.', url: 'assets/brochures/AUS-Global-Brochure.pdf', updated: '2026-10-01' },
   ],
   programmes: [
-    { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The language of business, mastered.' },
-    { id: 'p2', level: 'Bachelor', title: 'Business Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Lead organizations from day one.' },
-    { id: 'p3', level: 'Bachelor', title: 'Healthcare Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Healthcare needs better leaders.' },
-    { id: 'p4', level: 'Bachelor', title: 'Human Resource Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'People are the strategy.' },
-    { id: 'p5', level: 'Bachelor', title: 'Integrated & Digital Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Strategy meets execution.' },
-    { id: 'p6', level: 'Bachelor', title: 'International Business', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Think beyond borders.' },
-    { id: 'p7', level: 'Bachelor', title: 'Sports Management — Athletic Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Run the game, not the sidelines.' },
-    { id: 'p8', level: 'Bachelor', title: 'Sports Management — Sports Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Build brands that move people.' },
-    { id: 'p9', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 30,000 / year', description: 'Excellence is the experience.' },
-    { id: 'p10', level: 'Bachelor', title: 'Aviation Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The business of getting there.' },
-    { id: 'p11', level: 'Master', title: 'Finance', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Markets reward precision.' },
-    { id: 'p12', level: 'Master', title: 'Data Analytics', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Turn noise into signal.' },
-    { id: 'p13', level: 'Master', title: 'Healthcare Administration', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Systems that save lives.' },
-    { id: 'p14', level: 'Master', title: 'Human Resource Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Talent is the competitive edge.' },
-    { id: 'p15', level: 'Master', title: 'International Business', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Lead across markets.' },
-    { id: 'p16', level: 'Master', title: 'Leadership & Change', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Move organizations forward.' },
-    { id: 'p17', level: 'Master', title: 'Sports Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'The business behind the game.' },
-    { id: 'p18', level: 'Master', title: 'Strategic Brand & Digital Marketing', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Brand is the business model.' },
-    { id: 'p19', level: 'Master', title: 'Aviation Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Altitude requires strategy.' },
-    { id: 'p20', level: 'Doctorate', title: 'Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 26,000 / year', description: 'Original research that advances practice for experienced leaders.' },
-    { id: 'p21', level: 'Diploma', title: 'Swiss Federal Diploma — Business Administration', region: 'Switzerland', duration: '2 years (part-time)', language: 'English', intakes: 'September', fees: 'CHF 28,000 / year', description: 'The nationally recognized Swiss professional qualification, valued across European industries.' },
+    { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The language of business, mastered.' },
+    { id: 'p2', level: 'Bachelor', title: 'Business Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Lead organizations from day one.' },
+    { id: 'p3', level: 'Bachelor', title: 'Healthcare Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Healthcare needs better leaders.' },
+    { id: 'p4', level: 'Bachelor', title: 'Human Resource Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'People are the strategy.' },
+    { id: 'p5', level: 'Bachelor', title: 'Integrated & Digital Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Strategy meets execution.' },
+    { id: 'p6', level: 'Bachelor', title: 'International Business', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Think beyond borders.' },
+    { id: 'p7', level: 'Bachelor', title: 'Sports Management — Athletic Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Run the game, not the sidelines.' },
+    { id: 'p8', level: 'Bachelor', title: 'Sports Management — Sports Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Build brands that move people.' },
+    { id: 'p9', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 30'000 / year", description: 'Excellence is the experience.' },
+    { id: 'p10', level: 'Bachelor', title: 'Aviation Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The business of getting there.' },
+    { id: 'p11', level: 'Master', title: 'Finance', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Markets reward precision.' },
+    { id: 'p12', level: 'Master', title: 'Data Analytics', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Turn noise into signal.' },
+    { id: 'p13', level: 'Master', title: 'Healthcare Administration', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Systems that save lives.' },
+    { id: 'p14', level: 'Master', title: 'Human Resource Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Talent is the competitive edge.' },
+    { id: 'p15', level: 'Master', title: 'International Business', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Lead across markets.' },
+    { id: 'p16', level: 'Master', title: 'Leadership & Change', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Move organizations forward.' },
+    { id: 'p17', level: 'Master', title: 'Sports Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'The business behind the game.' },
+    { id: 'p18', level: 'Master', title: 'Strategic Brand & Digital Marketing', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Brand is the business model.' },
+    { id: 'p19', level: 'Master', title: 'Aviation Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Altitude requires strategy.' },
+    { id: 'p20', level: 'Doctorate', title: 'Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 26'000 / year", description: 'Original research that advances practice for experienced leaders.' },
+    { id: 'p21', level: 'Diploma', title: 'Swiss Federal Diploma — Business Administration', region: 'Switzerland', duration: '2 years (part-time)', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The nationally recognized Swiss professional qualification, valued across European industries.' },
   ],
   regions: [
     { id: 'r1', name: 'Switzerland', blurb: 'Campus in Montreux on the Swiss Riviera.' },
@@ -128,6 +129,21 @@ function fileSize(bytes) {
   let i = 0;
   while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
   return (i === 0 ? n : n.toFixed(1)) + ' ' + units[i];
+}
+
+// AUS intakes fall in January, April and September. Derive the next few from
+// today's date so the application form never goes stale.
+function nextIntakes(count = 4) {
+  const months = [{ name: 'January', m: 0 }, { name: 'April', m: 3 }, { name: 'September', m: 8 }];
+  const now = new Date();
+  const out = [];
+  for (let y = now.getFullYear(); out.length < count && y <= now.getFullYear() + 4; y++) {
+    for (const mo of months) {
+      if (out.length >= count) break;
+      if (new Date(y, mo.m, 1) > now) out.push(mo.name + ' ' + y);
+    }
+  }
+  return out;
 }
 
 function toast(msg, kind = 'ok') {
@@ -375,6 +391,7 @@ async function finishLogin(user) {
   setConnPill(DEMO_MODE ? 'demo' : 'ok', DEMO_MODE ? 'Demo mode' : 'Connected');
   renderShell();
   go('dashboard');
+  setTimeout(askNotificationPref, 600);
 }
 
 async function logout() {
@@ -428,11 +445,12 @@ function friendlyError(e) {
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high' },
   { id: 'offers', label: 'Offers', icon: 'fa-tags' },
-  { id: 'programmes', label: 'Programmes', icon: 'fa-graduation-cap' },
+  { id: 'programmes', label: 'Specializations', icon: 'fa-graduation-cap' },
   { id: 'brochures', label: 'Brochures', icon: 'fa-file-pdf' },
   { id: 'contracts', label: 'Contracts', icon: 'fa-file-signature' },
   { id: 'media', label: 'Media', icon: 'fa-photo-film' },
   { id: 'apply', label: 'Applications', icon: 'fa-paper-plane' },
+  { id: 'commissions', label: 'Commissions', icon: 'fa-coins' },
   { id: 'account', label: 'Account & Security', icon: 'fa-shield-halved' },
   { id: 'admin', label: 'Admin', icon: 'fa-user-gear', admin: true },
 ];
@@ -440,11 +458,12 @@ const NAV = [
 const TITLES = {
   dashboard: ['Dashboard', 'Everything you need to recruit for AUS — in one place.'],
   offers: ['Offers & incentives', 'Commission offers and campaigns you can promote.'],
-  programmes: ['Programmes', 'Courses, intakes, fees and entry information.'],
-  brochures: ['Brochures', 'Download the latest programme brochures.'],
-  contracts: ['Contracts', 'Representation and enrolment agreements.'],
+  programmes: ['Specializations', 'Programs, intakes, fees and entry information.'],
+  brochures: ['Brochures', 'Download the latest specialization brochures.'],
+  contracts: ['Contracts', 'Representation and enrollment agreements.'],
   media: ['Media library', 'Photos, articles and marketing assets you can use.'],
   apply: ['Applications', 'Submit a student application — we handle the rest.'],
+  commissions: ['Commissions', 'Request and track your commission payments.'],
   account: ['Account & Security', 'Your profile, two-factor authentication and sessions.'],
   admin: ['Admin', 'Manage agents, content and applications.'],
 };
@@ -457,6 +476,23 @@ function renderShell() {
   $('nav').innerHTML = NAV.filter((n) => !n.admin || u.isAdmin)
     .map((n) => `<button class="nav-item" data-nav="${n.id}" onclick="go('${n.id}')"><i class="fa-solid ${n.icon}"></i><span>${n.label}</span></button>`)
     .join('');
+  startSwissClock();
+}
+
+// Live clock for the AUS campus in Montreux (Switzerland).
+let _clockTimer = null;
+function startSwissClock() {
+  const t = $('sidebarClockTime');
+  const d = $('sidebarClockDate');
+  if (!t || !d) return;
+  const tick = () => {
+    const now = new Date();
+    t.textContent = now.toLocaleTimeString('en-GB', { timeZone: 'Europe/Zurich', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    d.textContent = now.toLocaleDateString('en-GB', { timeZone: 'Europe/Zurich', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  tick();
+  if (_clockTimer) clearInterval(_clockTimer);
+  _clockTimer = setInterval(tick, 1000);
 }
 
 function toggleSidebar() {
@@ -495,7 +531,7 @@ function go(view) {
   const renderers = {
     dashboard: renderDashboard, offers: renderOffers, programmes: renderProgrammes,
     brochures: renderBrochures, contracts: renderContracts, media: renderMedia,
-    apply: renderApply, account: renderAccount, admin: renderAdmin,
+    apply: renderApply, commissions: renderCommissions, account: renderAccount, admin: renderAdmin,
   };
   (renderers[view] || renderDashboard)(v);
 }
@@ -530,9 +566,9 @@ function renderDashboard(v) {
 
       <div class="grid cols-4">
         ${statTile('fa-file-pdf', (c.brochures || []).length, 'Brochures available')}
-        ${statTile('fa-graduation-cap', (c.programmes || []).length, 'Programmes listed')}
+        ${statTile('fa-graduation-cap', (c.programmes || []).length, 'Specializations listed')}
         ${statTile('fa-photo-film', (c.media || []).length, 'Media assets')}
-        ${statTile('fa-paper-plane', state.localApps.length, 'Applications submitted')}
+        ${statTile('fa-paper-plane', (state.apps.length || state.localApps.length), 'Applications submitted')}
       </div>
 
       <div class="grid cols-2">
@@ -553,8 +589,9 @@ function renderDashboard(v) {
         <div>
           <div class="section-head"><div><h2>Quick links</h2><p>Jump straight to what you need.</p></div></div>
           <div class="grid" style="gap:12px">
-            ${quickLink('fa-file-arrow-down', 'Download brochures', 'The latest programme brochures, ready to share.', 'brochures')}
-            ${quickLink('fa-file-signature', 'Contracts', 'Representation and enrolment agreements.', 'contracts')}
+            ${quickLink('fa-file-arrow-down', 'Download brochures', 'The latest specialization brochures, ready to share.', 'brochures')}
+            ${quickLink('fa-file-signature', 'Contracts', 'Representation and enrollment agreements.', 'contracts')}
+            ${quickLink('fa-coins', 'Request a commission', 'Send AUS your invoice details for a student.', 'commissions')}
             ${quickLink('fa-paper-plane', 'Start an application', 'Submit a student application in a few steps.', 'apply')}
             ${quickLink('fa-address-book', 'Talk to AUS', 'Reach Jonathan Hilton for recruitment support.', 'mailto:j.hilton@aus.swiss')}
           </div>
@@ -621,6 +658,7 @@ function renderProgrammes(v) {
   v.innerHTML = `
     <div class="filters">
       ${levels.map((l) => `<button class="chip ${l === active ? 'active' : ''}" onclick="filterProgrammes('${esc(l)}')">${esc(l)}</button>`).join('')}
+      <span class="tag green" style="margin-left:auto"><i class="fa-solid fa-calendar-check"></i> Next intake: ${esc(nextIntakes()[0] || '—')}</span>
     </div>
     <div class="grid cols-3">
       ${list.map((p) => `
@@ -637,7 +675,7 @@ function renderProgrammes(v) {
             <button class="btn btn-outline btn-sm" onclick="go('brochures')"><span>Brochure</span></button>
             <button class="btn btn-primary btn-sm" onclick="go('apply')"><span>Apply</span></button>
           </div>
-        </div>`).join('') || emptyInline('No programmes match this filter.')}
+        </div>`).join('') || emptyInline('No specializations match this filter.')}
     </div>`;
 }
 function filterProgrammes(level) { state.filters.programmeLevel = level; renderProgrammes($('view')); }
@@ -677,27 +715,128 @@ window.filterBrochures = filterBrochures;
    View: Contracts
    --------------------------------------------------------------------------- */
 function renderContracts(v) {
-  const list = C().contracts || [];
+  const u = state.user || {};
   v.innerHTML = `
-    <div class="card" style="margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
-      <i class="fa-solid fa-circle-info" style="color:var(--crimson);font-size:18px;margin-top:2px"></i>
-      <p style="font-size:13.5px">These documents are for selected AUS agents. Templates marked "template" must be completed and counter-signed by AUS before use.</p>
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <i class="fa-solid fa-circle-info" style="color:var(--crimson);font-size:18px;margin-top:2px"></i>
+        <p style="font-size:13.5px">Agreements and policies shared with your account. Documents assigned to you are private — no other agent can see them.</p>
+      </div>
+      <div style="margin-top:14px">
+        ${u.isAdmin
+          ? `<button class="btn btn-primary btn-sm" onclick="uploadContractPrompt()"><i class="fa-solid fa-cloud-arrow-up"></i><span>Upload &amp; assign</span></button>`
+          : `<button class="btn btn-primary btn-sm" onclick="uploadMyContractPrompt()"><i class="fa-solid fa-cloud-arrow-up"></i><span>Upload signed document</span></button>`}
+      </div>
     </div>
-    <div class="item-list">
-      ${list.map((c) => `
-        <div class="item">
+    <div id="contractList">${emptyInline('Loading…')}</div>`;
+  loadContracts();
+}
+
+async function loadContracts() {
+  const el = $('contractList');
+  if (!el) return;
+  const u = state.user || {};
+  const contentDocs = (C().contracts || []).map((c) => ({ ...c, kind: 'content' }));
+  let fileDocs = [];
+  if (!DEMO_MODE) {
+    try {
+      const res = await api('/api/files?category=contracts');
+      fileDocs = (res.data || []).map((f) => ({
+        id: f.id, title: f.name, url: f.url, size: fileSize(f.size),
+        updated: f.created, assignedTo: f.assignedTo, uploadedBy: f.uploadedBy, kind: 'file',
+      }));
+    } catch { /* fall back to content documents */ }
+  }
+  const list = [...fileDocs, ...contentDocs];
+  el.innerHTML = list.length ? `<div class="item-list">
+      ${list.map((c) => {
+        const mine = c.kind === 'file' && (u.isAdmin || c.uploadedBy === u.username);
+        const assigned = c.kind === 'file'
+          ? (c.assignedTo ? (c.assignedTo === u.username ? 'Assigned to you' : 'Assigned to ' + c.assignedTo) : 'All agents')
+          : 'All agents';
+        return `<div class="item">
           <div class="item-icon"><i class="fa-solid fa-file-signature"></i></div>
           <div class="item-body">
             <h4>${esc(c.title)}</h4>
             <p>${esc(c.note || '')}</p>
-            <div class="item-meta"><span>Updated ${fmtDate(c.updated)}</span></div>
+            <div class="item-meta"><span class="tag">${esc(assigned)}</span>${c.size ? `<span>${esc(c.size)}</span>` : ''}<span>Updated ${fmtDate(c.updated)}</span></div>
           </div>
           <div class="item-actions">
             <button class="btn btn-navy btn-sm" onclick="openFile('${esc(c.url)}','${esc(c.title)}')"><i class="fa-solid fa-download"></i><span>Download</span></button>
+            ${mine ? `<button class="btn btn-ghost btn-sm" onclick="deleteContract('${esc(c.id)}')"><span>Delete</span></button>` : ''}
           </div>
-        </div>`).join('') || emptyInline('No contracts uploaded yet.')}
-    </div>`;
+        </div>`;
+      }).join('')}
+    </div>` : emptyInline('No contracts uploaded yet.');
 }
+
+async function uploadContractPrompt() {
+  let agents = [];
+  try { const res = await api('/api/admin/agents'); agents = (res.data || []).filter((a) => a.role === 'agent'); } catch {}
+  openModal(`
+    <h2>Upload a contract or policy</h2>
+    <p class="modal-sub">Share a PDF with all agents, or assign it to one person. Only the assignee (and admins) can download it.</p>
+    <div class="field"><label>PDF file <span class="req">*</span></label><input id="ctFile" type="file" accept=".pdf,application/pdf"></div>
+    <div class="field"><label>Display name</label><input id="ctName" placeholder="Leave blank to use the file name"></div>
+    <div class="field"><label>Assign to</label><select id="ctAssign"><option value="">All agents</option>${agents.map((a) => `<option value="${esc(a.username)}">${esc(a.name || a.username)} (@${esc(a.username)})</option>`).join('')}</select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="uploadContract()"><span>Upload</span></button>
+    </div>`);
+}
+window.uploadContractPrompt = uploadContractPrompt;
+
+async function uploadContract() {
+  const f = $('ctFile') && $('ctFile').files ? $('ctFile').files[0] : null;
+  if (!f) { toast('Choose a PDF to upload.', 'err'); return; }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('category', 'contracts');
+  fd.append('name', $('ctName').value.trim() || f.name);
+  fd.append('assignedTo', $('ctAssign').value);
+  try {
+    await api('/api/admin/files', { method: 'POST', body: fd });
+    closeModal(); toast('Document uploaded.', 'ok'); renderContracts($('view'));
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.uploadContract = uploadContract;
+
+function uploadMyContractPrompt() {
+  openModal(`
+    <h2>Upload a signed document</h2>
+    <p class="modal-sub">Upload your signed agreement or any document AUS asked for. Only you and AUS can see it.</p>
+    <div class="field"><label>PDF file <span class="req">*</span></label><input id="ctFile" type="file" accept=".pdf,application/pdf"></div>
+    <div class="field"><label>Display name</label><input id="ctName" placeholder="Leave blank to use the file name"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="uploadMyContract()"><span>Upload</span></button>
+    </div>`);
+}
+window.uploadMyContractPrompt = uploadMyContractPrompt;
+
+async function uploadMyContract() {
+  const f = $('ctFile') && $('ctFile').files ? $('ctFile').files[0] : null;
+  if (!f) { toast('Choose a PDF to upload.', 'err'); return; }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('category', 'contracts');
+  fd.append('name', $('ctName').value.trim() || f.name);
+  try {
+    await api('/api/files', { method: 'POST', body: fd });
+    closeModal(); toast('Document uploaded.', 'ok'); renderContracts($('view'));
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.uploadMyContract = uploadMyContract;
+
+async function deleteContract(id) {
+  if (!confirm('Delete this document? This cannot be undone.')) return;
+  try {
+    await api('/api/files/' + encodeURIComponent(id), { method: 'DELETE' });
+    toast('Document deleted.', 'ok');
+    loadContracts();
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.deleteContract = deleteContract;
 
 /* ---------------------------------------------------------------------------
    View: Media
@@ -724,22 +863,39 @@ function renderMedia(v) {
    View: Applications
    --------------------------------------------------------------------------- */
 function submissionsHtml() {
+  const apps = state.apps.length ? state.apps : state.localApps;
   return `
     <div>
       <div class="section-head"><div><h2>Your submissions</h2><p>Applications you've sent to AUS.</p></div></div>
       <div class="item-list" id="appList">
-        ${state.localApps.length ? state.localApps.slice().reverse().map((a) => `
+        ${apps.length ? apps.slice().reverse().map((a) => `
           <div class="item">
             <div class="item-icon"><i class="fa-solid fa-user-graduate"></i></div>
             <div class="item-body">
               <h4>${esc(a.studentName)}</h4>
-              <p>${esc(a.programme || 'Programme TBC')} · ${esc(a.intake || '')}</p>
+              <p>${esc(a.programme || 'Specialization TBC')} · ${esc(a.intake || '')}</p>
               <div class="item-meta"><span>Sent ${fmtDate(a.created)}</span></div>
             </div>
             <span class="tag ${a.status === 'new' ? 'amber' : 'green'}">${esc(a.status)}</span>
           </div>`).join('') : emptyInline('You have not submitted any applications yet.')}
       </div>
     </div>`;
+}
+
+async function loadMyApps() {
+  if (DEMO_MODE || !state.token) return;
+  try {
+    const res = await api('/api/applications');
+    state.apps = (res.data || []).map((a) => ({
+      studentName: a.student_name, programme: a.programme, intake: a.intake,
+      status: a.status, created: a.created_at,
+    }));
+    const el = $('appList');
+    if (el) {
+      const wrap = el.parentElement;
+      if (wrap) wrap.outerHTML = submissionsHtml();
+    }
+  } catch { /* keep whatever is already shown */ }
 }
 
 function renderApply(v) {
@@ -761,14 +917,15 @@ function renderApply(v) {
           <div class="field"><label>Nationality</label><input id="apNat" placeholder="e.g. Lebanese"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Programme</label><select id="apProgramme"><option value="">Select a programme…</option>${programmes}</select></div>
-          <div class="field"><label>Intake</label><select id="apIntake"><option>January 2027</option><option>September 2027</option><option>Other / to discuss</option></select></div>
+          <div class="field"><label>Specialization</label><select id="apProgramme"><option value="">Select a specialization…</option>${programmes}</select></div>
+          <div class="field"><label>Intake</label><select id="apIntake">${nextIntakes().map((i) => `<option>${i}</option>`).join('')}<option>Other / to discuss</option></select></div>
         </div>
         <div class="field"><label>Notes / context</label><textarea id="apNotes" placeholder="Grades, English level, budget, preferred start date…"></textarea></div>
         <button class="btn btn-primary btn-block" onclick="submitApplication()"><i class="fa-solid fa-paper-plane"></i><span>Submit application</span></button>
       </div>
       ${submissionsHtml()}
     </div>`;
+  loadMyApps();
 }
 
 let _hubspotLoaded = null;
@@ -796,6 +953,7 @@ function renderApplyHubspot(v, HS) {
       </div>
       ${submissionsHtml()}
     </div>`;
+  loadMyApps();
   loadHubspotScript()
     .then(() => {
       if (window.hbspt && window.hbspt.forms) {
@@ -838,6 +996,118 @@ async function submitApplication() {
 window.submitApplication = submitApplication;
 
 /* ---------------------------------------------------------------------------
+   View: Commissions
+   --------------------------------------------------------------------------- */
+function renderCommissions(v) {
+  const u = state.user || {};
+  v.innerHTML = `
+    <div class="grid cols-2" style="align-items:start">
+      <div class="card">
+        <h3 style="margin-bottom:6px">Request a commission</h3>
+        <p style="font-size:13px;margin-bottom:20px">Send your commission or invoice details to AUS. Finance will review the request and update the status.</p>
+        <div class="field-row">
+          <div class="field"><label>Amount</label><input id="cmAmount" placeholder="1'000"></div>
+          <div class="field"><label>Currency</label><select id="cmCurrency"><option>CHF</option><option>EUR</option><option>USD</option><option>GBP</option></select></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Student reference</label><input id="cmStudent" placeholder="Student name or AUS ID"></div>
+          <div class="field"><label>Invoice number</label><input id="cmInvoice" placeholder="INV-2027-001"></div>
+        </div>
+        <div class="field"><label>Period</label><input id="cmPeriod" placeholder="e.g. January 2027 intake"></div>
+        <div class="field"><label>Notes</label><textarea id="cmNotes" placeholder="Anything finance should know…"></textarea></div>
+        <button class="btn btn-primary btn-block" onclick="submitCommission()"><i class="fa-solid fa-coins"></i><span>Submit request</span></button>
+      </div>
+      <div>
+        <div class="section-head"><div><h2>${u.isAdmin ? 'All requests' : 'Your requests'}</h2><p>${u.isAdmin ? 'Commission requests from every agent.' : 'Track what you have sent to AUS.'}</p></div></div>
+        <div id="commissionList">${emptyInline('Loading…')}</div>
+      </div>
+    </div>`;
+  loadCommissions();
+}
+
+async function loadCommissions() {
+  const el = $('commissionList');
+  if (!el) return;
+  if (DEMO_MODE) { el.innerHTML = emptyInline('Commission requests need the Cloudflare worker.'); return; }
+  const u = state.user || {};
+  try {
+    const res = await api('/api/commissions');
+    const rows = res.data || [];
+    if (!rows.length) { el.innerHTML = emptyInline('No commission requests yet.'); return; }
+    const statusTag = (s) => {
+      const cls = s === 'paid' || s === 'approved' ? 'green' : s === 'rejected' ? 'crimson' : 'amber';
+      return `<span class="tag ${cls}">${esc(s)}</span>`;
+    };
+    el.innerHTML = `<div class="item-list">
+      ${rows.map((c) => `
+        <div class="item">
+          <div class="item-icon"><i class="fa-solid fa-coins"></i></div>
+          <div class="item-body">
+            <h4>${esc(c.currency || 'CHF')} ${esc(c.amount || '—')}</h4>
+            <p>${esc(c.student_ref || 'No student reference')}${c.invoice_no ? ' · ' + esc(c.invoice_no) : ''}</p>
+            <div class="item-meta">
+              ${u.isAdmin ? `<span class="tag">@${esc(c.agent)}</span>` : ''}
+              ${c.period ? `<span>${esc(c.period)}</span>` : ''}
+              <span>Sent ${fmtDate(c.created_at)}</span>
+            </div>
+            ${c.notes ? `<p style="margin-top:6px;font-size:12.5px;color:var(--slate)">${esc(c.notes)}</p>` : ''}
+          </div>
+          <div class="item-actions" style="text-align:right">
+            ${u.isAdmin
+              ? `<select onchange="setCommissionStatus('${esc(c.id)}', this.value)" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--line)">
+                  ${['new', 'reviewing', 'approved', 'paid', 'rejected'].map((s) => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                </select>`
+              : statusTag(c.status)}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  } catch (e) { el.innerHTML = emptyInline(friendlyError(e)); }
+}
+
+async function submitCommission() {
+  const body = {
+    amount: $('cmAmount').value.trim(),
+    currency: $('cmCurrency').value,
+    studentRef: $('cmStudent').value.trim(),
+    invoiceNo: $('cmInvoice').value.trim(),
+    period: $('cmPeriod').value.trim(),
+    notes: $('cmNotes').value.trim(),
+  };
+  if (!body.amount && !body.notes) { toast('Enter an amount or a note for finance.', 'err'); return; }
+  if (DEMO_MODE) { toast('Commission requests need the Cloudflare worker.', 'info'); return; }
+  try {
+    await api('/api/commissions', { method: 'POST', body });
+    toast('Commission request submitted.', 'ok');
+    renderCommissions($('view'));
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.submitCommission = submitCommission;
+
+async function sendBroadcast() {
+  const subject = $('notifySubject').value.trim();
+  const message = $('notifyMessage').value.trim();
+  if (!subject || !message) { toast('Enter a subject and a message.', 'err'); return; }
+  if (!confirm('Send this email to all opted-in agents?')) return;
+  try {
+    const res = await api('/api/admin/notify', { method: 'POST', body: { subject, message } });
+    const d = res.data || {};
+    if (!d.emailConfigured) toast('Saved, but email is not configured on the worker (RESEND_API_KEY).', 'info');
+    else toast(`Email sent to ${d.sent} of ${d.recipients} opted-in agents.`, 'ok');
+    $('notifySubject').value = ''; $('notifyMessage').value = '';
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.sendBroadcast = sendBroadcast;
+
+async function setCommissionStatus(id, status) {
+  try {
+    await api('/api/admin/commissions', { method: 'PATCH', body: { id, status } });
+    toast('Status updated.', 'ok');
+    loadCommissions();
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.setCommissionStatus = setCommissionStatus;
+
+/* ---------------------------------------------------------------------------
    View: Account & Security
    --------------------------------------------------------------------------- */
 function renderAccount(v) {
@@ -853,7 +1123,12 @@ function renderAccount(v) {
         <div class="sec-row"><div class="sec-info"><h4>Phone</h4><p>${esc(u.phone || '—')}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Agency</h4><p>${esc(u.agency || '—')}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Country</h4><p>${esc(u.country || '—')}</p></div></div>
+        <div class="sec-row"><div class="sec-info"><h4>Address</h4><p>${esc([u.addressLine1, u.addressLine2, [u.postalCode, u.city].filter(Boolean).join(' '), u.region].filter(Boolean).join(', ') || '—')}</p></div></div>
         <div class="sec-row"><div class="sec-info"><h4>Role</h4><p>${u.isSuperAdmin ? 'Superadmin' : u.isAdmin ? 'Administrator' : 'AUS Agent'}</p></div></div>
+        <div class="sec-row">
+          <div class="sec-info"><h4>Email updates</h4><p>${u.notifyEmail ? 'You receive email notifications from AUS.' : 'Email notifications are turned off.'}</p></div>
+          <button class="btn btn-ghost btn-sm" onclick="toggleNotifications()"><span>${u.notifyEmail ? 'Turn off' : 'Turn on'}</span></button>
+        </div>
       </div>
 
       <div class="card">
@@ -886,6 +1161,49 @@ function renderAccount(v) {
     </div>`;
   if (!DEMO_MODE) loadSessions();
 }
+
+async function saveNotificationPref(enabled) {
+  if (DEMO_MODE) {
+    state.user.notifyEmail = enabled;
+    state.user.notifiedAsked = true;
+    return;
+  }
+  const res = await api('/api/notifications', { method: 'POST', body: { notifyEmail: enabled } });
+  state.user.notifyEmail = !!(res.data && res.data.notifyEmail);
+  state.user.notifiedAsked = true;
+}
+
+async function toggleNotifications() {
+  try {
+    await saveNotificationPref(!state.user.notifyEmail);
+    toast(state.user.notifyEmail ? 'Email notifications enabled.' : 'Email notifications turned off.', 'ok');
+    renderAccount($('view'));
+  } catch (e) { toast(friendlyError(e), 'err'); }
+}
+window.toggleNotifications = toggleNotifications;
+
+// Shown once, after the first sign-in, to ask whether AUS may email updates.
+function askNotificationPref() {
+  const u = state.user || {};
+  if (DEMO_MODE || u.isAdmin || u.notifiedAsked) return;
+  openModal(`
+    <h2>Stay up to date</h2>
+    <p class="modal-sub">May we email you when new brochures, contracts or offers are published? We will only send useful updates — you can unsubscribe at any time.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="answerNotifications(false)">Not now</button>
+      <button class="btn btn-primary" onclick="answerNotifications(true)"><i class="fa-solid fa-envelope"></i><span>Yes, email me</span></button>
+    </div>`);
+}
+window.askNotificationPref = askNotificationPref;
+
+async function answerNotifications(enabled) {
+  try {
+    await saveNotificationPref(enabled);
+    closeModal();
+    if (enabled) toast('You are subscribed to AUS email updates.', 'ok');
+  } catch (e) { closeModal(); toast(friendlyError(e), 'err'); }
+}
+window.answerNotifications = answerNotifications;
 
 async function changePassword() {
   const current = $('cpCurrent').value;
@@ -992,10 +1310,13 @@ function renderAdmin(v) {
             ${contentRow('brochures', 'Brochures', 'PDFs agents can download and share.', 'fa-file-pdf')}
             ${contentRow('offers', 'Offers', 'Promotions shown to your agents.', 'fa-gift')}
             ${contentRow('media', 'Images & media', 'Marketing assets for agents.', 'fa-image')}
-            <div class="sec-row">
-              <div class="sec-info"><h4>Advanced</h4><p>Edit the full portal content as JSON.</p></div>
-              <button class="btn btn-ghost btn-sm" onclick="editContentPrompt()"><i class="fa-solid fa-code"></i><span>Edit JSON</span></button>
-            </div>
+          </div>
+          <div class="section-head" style="margin-top:22px"><div><h2>Email update</h2><p>Send a note to agents who opted in.</p></div></div>
+          <div class="card">
+            <div class="field"><label>Subject</label><input id="notifySubject" placeholder="New brochure available"></div>
+            <div class="field"><label>Message</label><textarea id="notifyMessage" placeholder="Write a short update for your agents…"></textarea></div>
+            <button class="btn btn-primary btn-sm" onclick="sendBroadcast()"><i class="fa-solid fa-paper-plane"></i><span>Send to opted-in agents</span></button>
+            <p class="field-hint" style="margin-top:8px">Requires <code>RESEND_API_KEY</code> on the worker. Each email includes an unsubscribe link.</p>
           </div>
         </div>
       </div>
@@ -1077,7 +1398,21 @@ function newAgentPrompt() {
       <div class="field"><label>Agency</label><input id="naAgency" placeholder="Agency name"></div>
       <div class="field"><label>Username <span class="req">*</span></label><input id="naUser" placeholder="login name"></div>
     </div>
+    <div class="field"><label>Address line 1</label><input id="naAddr1" placeholder="Street and number"></div>
+    <div class="field-row">
+      <div class="field"><label>Address line 2</label><input id="naAddr2" placeholder="Building, floor…"></div>
+      <div class="field"><label>City</label><input id="naCity" placeholder="City"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Postal code</label><input id="naPostal" placeholder="1000"></div>
+      <div class="field"><label>Region / state</label><input id="naRegion" placeholder="Region"></div>
+    </div>
     <div class="field"><label>Temporary password <span class="req">*</span></label><input id="naPass" placeholder="At least 8 characters"></div>
+    <div class="field">
+      <label>Contracts &amp; documents</label>
+      <input id="naFiles" type="file" accept=".pdf,application/pdf" multiple>
+      <p class="field-hint">Optional. These are assigned to this agent only.</p>
+    </div>
     ${me.isSuperAdmin ? `<label style="display:flex;gap:9px;align-items:center;font-size:13px;color:var(--ink-soft);margin-top:4px"><input type="checkbox" id="naAdmin" style="width:auto"> Grant administrator access</label>` : ''}
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -1095,6 +1430,11 @@ async function createAgent() {
     phone: $('naPhone').value.trim(),
     country,
     agency: $('naAgency').value.trim(),
+    addressLine1: $('naAddr1').value.trim(),
+    addressLine2: $('naAddr2').value.trim(),
+    city: $('naCity').value.trim(),
+    postalCode: $('naPostal').value.trim(),
+    region: $('naRegion').value.trim(),
     username: $('naUser').value.trim().toLowerCase(),
     password: $('naPass').value,
     isAdmin: $('naAdmin') ? $('naAdmin').checked : false,
@@ -1105,7 +1445,20 @@ async function createAgent() {
   if (DEMO_MODE) { toast('Demo mode: accounts are not stored. Connect the worker.', 'info'); closeModal(); return; }
   try {
     await api('/api/admin/agents', { method: 'POST', body });
-    closeModal(); toast('Account created.', 'ok'); loadAgents();
+    const fileEl = $('naFiles');
+    const files = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
+    let uploaded = 0;
+    for (const f of files) {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('category', 'contracts');
+      fd.append('name', f.name);
+      fd.append('assignedTo', body.username);
+      try { await api('/api/admin/files', { method: 'POST', body: fd }); uploaded += 1; } catch {}
+    }
+    closeModal();
+    toast(uploaded ? `Account created with ${uploaded} document${uploaded > 1 ? 's' : ''}.` : 'Account created.', 'ok');
+    loadAgents();
   } catch (e) { toast(friendlyError(e), 'err'); }
 }
 window.createAgent = createAgent;
@@ -1143,7 +1496,7 @@ async function loadAdminApps() {
     const el = $('adminApps');
     if (!res.data.length) { el.innerHTML = emptyInline('No applications yet.'); return; }
     el.innerHTML = `<div class="table-wrap"><table class="table">
-      <thead><tr><th>Student</th><th>Programme</th><th>Agent</th><th>Status</th></tr></thead>
+      <thead><tr><th>Student</th><th>Specialization</th><th>Agent</th><th>Status</th></tr></thead>
       <tbody>${res.data.map((a) => `
         <tr>
           <td><b>${esc(a.student_name)}</b><br><span style="color:var(--slate);font-size:12px">${esc(a.student_email || '')}</span></td>
@@ -1167,7 +1520,7 @@ window.setAppStatus = setAppStatus;
 function editContentPrompt() {
   openModal(`
     <h2>Edit portal content</h2>
-    <p class="modal-sub">Edit the JSON below (news, offers, brochures, contracts, programmes, media). Save to publish to all agents.</p>
+    <p class="modal-sub">Edit the JSON below (news, offers, brochures, contracts, specializations, media). Save to publish to all agents.</p>
     <div class="field"><textarea id="contentJson" style="min-height:360px;font-family:ui-monospace,monospace;font-size:12.5px">${esc(JSON.stringify(C(), null, 2))}</textarea></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -1201,7 +1554,7 @@ const RESOURCES = {
     upload: { label: 'Brochure PDF', accept: '.pdf,application/pdf', required: true },
     fields: [
       { key: 'title', label: 'Title', required: true, placeholder: 'AUS Global Brochure' },
-      { key: 'programme', label: 'Programme', placeholder: 'All programmes' },
+      { key: 'programme', label: 'Specialization', placeholder: 'All specializations' },
       { key: 'region', label: 'Region', placeholder: 'Global' },
     ],
     blank: () => ({ id: uid('b'), title: '', programme: '', region: '', url: '', size: '', updated: today() }),
@@ -1212,7 +1565,7 @@ const RESOURCES = {
     summary: (o) => [o.badge, o.subtitle].filter(Boolean).join(' · '),
     upload: { label: 'Offer image (optional)', accept: 'image/*', required: false },
     fields: [
-      { key: 'title', label: 'Title', required: true, placeholder: 'CHF 1,000 commission bonus per new student' },
+      { key: 'title', label: 'Title', required: true, placeholder: "CHF 1'000 commission bonus per new student" },
       { key: 'badge', label: 'Badge', placeholder: 'January 2027 intake' },
       { key: 'subtitle', label: 'Subtitle' },
       { key: 'body', label: 'Body', type: 'textarea' },

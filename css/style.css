@@ -182,6 +182,22 @@ img { display: block; max-width: 100%; }
 .nav-section { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
   color: rgba(255,255,255,0.38); padding: 18px 13px 8px; }
 
+.sidebar-extras { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-clock {
+  display: flex; align-items: center; gap: 11px; padding: 10px 13px; border-radius: 10px;
+  background: rgba(255,255,255,0.06); margin-bottom: 4px;
+}
+.sidebar-clock > i { font-size: 15px; color: var(--yellow); width: 18px; text-align: center; }
+.sidebar-clock-text { display: flex; flex-direction: column; line-height: 1.25; }
+.sidebar-clock-time { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.sidebar-clock-date { font-size: 11px; color: rgba(255,255,255,0.55); }
+.sidebar-link {
+  display: flex; align-items: center; gap: 13px; padding: 9px 13px; border-radius: 10px;
+  font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,0.68); transition: background 0.18s, color 0.18s;
+}
+.sidebar-link i { width: 18px; text-align: center; font-size: 14px; }
+.sidebar-link:hover { background: rgba(255,255,255,0.07); color: #fff; }
+
 .sidebar-foot { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 14px; margin-top: 12px; }
 .whoami { display: flex; align-items: center; gap: 11px; padding: 0 4px 12px; }
 .whoami-avatar {

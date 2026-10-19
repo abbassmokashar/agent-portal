@@ -70,6 +70,7 @@ async function route(request, env, url) {
   if (path === '/api/2fa/verify' && method === 'POST') return twofaVerify(request, env);
   if (path === '/api/forgot' && method === 'POST') return forgotPassword(request, env);
   if (path === '/api/reset' && method === 'POST') return resetPassword(request, env);
+  if (path === '/api/unsubscribe' && method === 'GET') return unsubscribe(env, url);
 
   // ---- Authenticated ----
   const user = await requireUser(request, env);
@@ -86,14 +87,20 @@ async function route(request, env, url) {
   if (path === '/api/2fa/disable' && method === 'POST') return twofaDisable(request, env, user);
 
   if (path === '/api/content' && method === 'GET') return getContent(env);
-  if (path === '/api/files' && method === 'GET') return listFiles(env, url);
+  if (path === '/api/files' && method === 'GET') return listFiles(env, user, url);
+  if (path === '/api/files' && method === 'POST') return uploadOwnFile(request, env, user);
 
   const fileMatch = path.match(/^\/api\/files\/([A-Za-z0-9_-]+)$/);
-  if (fileMatch && method === 'GET') return downloadFile(env, fileMatch[1]);
+  if (fileMatch && method === 'GET') return downloadFile(env, fileMatch[1], user);
+  if (fileMatch && method === 'DELETE') return deleteFile(env, fileMatch[1], user);
 
   const adminFileMatch = path.match(/^\/api\/admin\/files\/([A-Za-z0-9_-]+)$/);
 
   if (path === '/api/applications' && method === 'POST') return createApplication(request, env, user);
+  if (path === '/api/applications' && method === 'GET') return listMyApplications(env, user);
+  if (path === '/api/commissions' && method === 'POST') return createCommission(request, env, user);
+  if (path === '/api/commissions' && method === 'GET') return listCommissions(env, user);
+  if (path === '/api/notifications' && method === 'POST') return setNotificationPrefs(request, env, user);
 
   // ---- Admin only ----
   if (path.startsWith('/api/admin/')) {
@@ -113,6 +120,9 @@ async function route(request, env, url) {
 
     if (path === '/api/admin/applications' && method === 'GET') return listApplications(env);
     if (path === '/api/admin/applications' && method === 'PATCH') return updateApplication(request, env);
+    if (path === '/api/admin/commissions' && method === 'GET') return listCommissions(env, user);
+    if (path === '/api/admin/commissions' && method === 'PATCH') return updateCommission(request, env);
+    if (path === '/api/admin/notify' && method === 'POST') return broadcastNotification(request, env, user);
 
     // ---- Superadmin only: backups ----
     if (path === '/api/admin/backups' && method === 'GET') return listBackups(env, user);
@@ -311,6 +321,13 @@ function publicUser(u) {
     isSuperAdmin: !!u.is_superadmin,
     agency: u.agency || '',
     country: u.country || '',
+    addressLine1: u.address_line1 || '',
+    addressLine2: u.address_line2 || '',
+    city: u.city || '',
+    postalCode: u.postal_code || '',
+    region: u.region || '',
+    notifyEmail: !!u.notify_email,
+    notifiedAsked: !!u.notified_asked,
     twoFA: !!u.totp_enabled,
     memberSince: u.created_at,
     lastLogin: u.last_login || null,
@@ -510,7 +527,8 @@ async function resetPassword(request, env) {
 }
 
 async function sendEmail(env, to, subject, html) {
-  await fetch('https://api.resend.com/emails', {
+  if (!env.RESEND_API_KEY) return { skipped: true };
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
@@ -522,7 +540,8 @@ async function sendEmail(env, to, subject, html) {
       subject,
       html,
     }),
-  });
+  }).catch(() => null);
+  return { ok: !!(res && res.ok), status: res ? res.status : 0 };
 }
 
 function resetEmailHtml(link) {
@@ -586,16 +605,22 @@ async function createAgent(request, env, admin) {
   if (emailExists) return json({ error: 'email_taken' }, 409);
 
   const { salt, hash } = await hashPassword(password);
+  const agency = String(body.agency || '').trim();
+  const addressLine1 = String(body.addressLine1 || '').trim();
+  const addressLine2 = String(body.addressLine2 || '').trim();
+  const city = String(body.city || '').trim();
+  const postalCode = String(body.postalCode || '').trim();
+  const region = String(body.region || '').trim();
   await env.DB.prepare(
-    'INSERT INTO users (username, name, email, phone, pass_hash, salt, agency, country, is_admin, is_superadmin, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,0,?,?)'
+    'INSERT INTO users (username, name, email, phone, pass_hash, salt, agency, country, address_line1, address_line2, city, postal_code, region, is_admin, is_superadmin, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)'
   )
     .bind(
       username, name, email, phone, hash, salt,
-      String(body.agency || ''), country,
+      agency, country, addressLine1, addressLine2, city, postalCode, region,
       makeAdmin ? 1 : 0, 'active', nowIso()
     )
     .run();
-  return json({ ok: true, createdBy: admin.username });
+  return json({ ok: true, createdBy: admin.username, username });
 }
 
 async function deleteAgent(env, url, admin) {
@@ -685,16 +710,15 @@ async function putContent(request, env, admin) {
 // ---------------------------------------------------------------------------
 //  Files (KV-backed, gated)
 // ---------------------------------------------------------------------------
-async function listFiles(env, url) {
+async function listFiles(env, user, url) {
   const category = url.searchParams.get('category');
-  const rows = await env.DB.prepare(
-    category ? 'SELECT * FROM files WHERE category = ? ORDER BY created_at DESC'
-             : 'SELECT * FROM files ORDER BY created_at DESC'
-  )
-    .bind(...(category ? [category] : []))
-    .all();
-  const data = (rows.results || []).map(fileMeta);
-  return json({ ok: true, data });
+  const rows = await env.DB.prepare('SELECT * FROM files ORDER BY created_at DESC').all();
+  let data = (rows.results || []).filter((f) => {
+    if (user.is_admin) return true;
+    return !f.assigned_to || f.assigned_to === user.username;
+  });
+  if (category) data = data.filter((f) => f.category === category);
+  return json({ ok: true, data: data.map(fileMeta) });
 }
 
 function fileMeta(f) {
@@ -704,10 +728,17 @@ function fileMeta(f) {
     category: f.category,
     contentType: f.content_type,
     size: f.size,
-    uploadedBy: f.uploaded_by,
+    uploadedBy: f.uploaded_by || '',
+    assignedTo: f.assigned_to || '',
     created: f.created_at,
     url: `/api/files/${f.id}`,
   };
+}
+
+function canSeeFile(file, user) {
+  if (user.is_admin) return true;
+  if (!file.assigned_to) return true; // global document — visible to all agents
+  return file.assigned_to === user.username || file.uploaded_by === user.username;
 }
 
 async function uploadFile(request, env, admin) {
@@ -716,6 +747,7 @@ async function uploadFile(request, env, admin) {
   if (!file || typeof file === 'string') return json({ error: 'missing_file' }, 400);
   const category = String(form.get('category') || 'media');
   const name = String(form.get('name') || file.name || 'file');
+  const assignedTo = String(form.get('assignedTo') || '').trim().toLowerCase();
   const buf = await file.arrayBuffer();
   if (buf.byteLength > MAX_UPLOAD_BYTES) return json({ error: 'file_too_large' }, 413);
 
@@ -723,40 +755,70 @@ async function uploadFile(request, env, admin) {
   const contentType = file.type || 'application/octet-stream';
   await env.FILES.put(`file:${id}`, buf, { metadata: { contentType, name } });
   await env.DB.prepare(
-    'INSERT INTO files (id, name, category, content_type, size, uploaded_by, created_at) VALUES (?,?,?,?,?,?,?)'
+    'INSERT INTO files (id, name, category, content_type, size, uploaded_by, assigned_to, created_at) VALUES (?,?,?,?,?,?,?,?)'
   )
-    .bind(id, name, category, contentType, buf.byteLength, admin.username, nowIso())
+    .bind(id, name, category, contentType, buf.byteLength, admin.username, assignedTo || null, nowIso())
     .run();
-  return json({ ok: true, data: { id, url: `/api/files/${id}`, name, category, contentType, size: buf.byteLength } });
+  return json({ ok: true, data: { id, url: `/api/files/${id}`, name, category, contentType, size: buf.byteLength, assignedTo } });
 }
 
-// Rename or re-categorise an uploaded file (does not change its bytes).
+// An agent may upload a document (e.g. signed contract). It is visible to them
+// and to admins, never to other agents.
+async function uploadOwnFile(request, env, user) {
+  const form = await request.formData();
+  const file = form.get('file');
+  if (!file || typeof file === 'string') return json({ error: 'missing_file' }, 400);
+  const name = String(form.get('name') || file.name || 'file');
+  const category = String(form.get('category') || 'contracts');
+  const buf = await file.arrayBuffer();
+  if (buf.byteLength > MAX_UPLOAD_BYTES) return json({ error: 'file_too_large' }, 413);
+  const id = randomToken(12);
+  const contentType = file.type || 'application/octet-stream';
+  await env.FILES.put(`file:${id}`, buf, { metadata: { contentType, name } });
+  await env.DB.prepare(
+    'INSERT INTO files (id, name, category, content_type, size, uploaded_by, assigned_to, created_at) VALUES (?,?,?,?,?,?,?,?)'
+  )
+    .bind(id, name, category, contentType, buf.byteLength, user.username, user.username, nowIso())
+    .run();
+  return json({ ok: true, data: { id, url: `/api/files/${id}`, name, category, contentType, size: buf.byteLength, assignedTo: user.username } });
+}
+
+// Rename, re-categorise or reassign a file (admin only).
 async function updateFileMeta(request, env, id) {
   const body = await request.json().catch(() => ({}));
   const name = body.name != null ? String(body.name).trim() : null;
   const category = body.category != null ? String(body.category).trim() : null;
-  if (!name && !category) return json({ error: 'nothing_to_update' }, 400);
-  const file = await env.DB.prepare('SELECT id, name FROM files WHERE id = ?').bind(id).first();
+  const assignedTo = body.assignedTo != null ? String(body.assignedTo).trim().toLowerCase() : null;
+  if (!name && !category && assignedTo === null) return json({ error: 'nothing_to_update' }, 400);
+  const file = await env.DB.prepare('SELECT id FROM files WHERE id = ?').bind(id).first();
   if (!file) return json({ error: 'not_found' }, 404);
   if (name) await env.DB.prepare('UPDATE files SET name = ? WHERE id = ?').bind(name, id).run();
   if (category) await env.DB.prepare('UPDATE files SET category = ? WHERE id = ?').bind(category, id).run();
+  if (assignedTo !== null) await env.DB.prepare('UPDATE files SET assigned_to = ? WHERE id = ?').bind(assignedTo || null, id).run();
   return json({ ok: true });
 }
 
-async function downloadFile(env, id) {
+async function downloadFile(env, id, user) {
+  const meta = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
+  if (!meta) return json({ error: 'not_found' }, 404);
+  if (!canSeeFile(meta, user)) return json({ error: 'forbidden' }, 403);
   const { value, metadata } = await env.FILES.getWithMetadata(`file:${id}`, { type: 'arrayBuffer' });
   if (!value) return json({ error: 'not_found' }, 404);
   return new Response(value, {
     status: 200,
     headers: {
-      'Content-Type': (metadata && metadata.contentType) || 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${encodeURIComponent((metadata && metadata.name) || id)}"`,
+      'Content-Type': (metadata && metadata.contentType) || meta.content_type || 'application/octet-stream',
+      'Content-Disposition': `inline; filename="${encodeURIComponent((metadata && metadata.name) || meta.name || id)}"`,
       'Cache-Control': 'private, max-age=300',
     },
   });
 }
 
-async function deleteFile(env, id, admin) {
+async function deleteFile(env, id, user) {
+  const meta = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
+  if (!meta) return json({ error: 'not_found' }, 404);
+  // Admins can delete anything; agents only files they uploaded themselves.
+  if (!user.is_admin && meta.uploaded_by !== user.username) return json({ error: 'forbidden' }, 403);
   await env.FILES.delete(`file:${id}`);
   await env.DB.prepare('DELETE FROM files WHERE id = ?').bind(id).run();
   return json({ ok: true });
@@ -804,6 +866,122 @@ async function updateApplication(request, env) {
   if (!id) return json({ error: 'missing_id' }, 400);
   await env.DB.prepare('UPDATE applications SET status = ? WHERE id = ?').bind(status, id).run();
   return json({ ok: true });
+}
+
+// Agents only ever see their own submissions; admins see everything.
+async function listMyApplications(env, user) {
+  if (user.is_admin) return listApplications(env);
+  const rows = await env.DB.prepare(
+    'SELECT * FROM applications WHERE agent = ? ORDER BY created_at DESC'
+  ).bind(user.username).all();
+  return json({ ok: true, data: rows.results || [] });
+}
+
+// ---------------------------------------------------------------------------
+//  Commissions (invoice/commission requests — stored for the finance team)
+// ---------------------------------------------------------------------------
+async function createCommission(request, env, user) {
+  const body = await request.json().catch(() => ({}));
+  const amount = String(body.amount || '').trim();
+  const notes = String(body.notes || '').trim();
+  if (!amount && !notes) return json({ error: 'missing_fields' }, 400);
+
+  const id = randomToken(10);
+  await env.DB.prepare(
+    'INSERT INTO commission_requests (id, agent, amount, currency, period, student_ref, invoice_no, notes, status, created_at) ' +
+      'VALUES (?,?,?,?,?,?,?,?,?,?)'
+  )
+    .bind(
+      id,
+      user.username,
+      amount,
+      String(body.currency || 'CHF').trim() || 'CHF',
+      String(body.period || '').trim(),
+      String(body.studentRef || '').trim(),
+      String(body.invoiceNo || '').trim(),
+      notes,
+      'new',
+      nowIso()
+    )
+    .run();
+  return json({ ok: true, data: { id, status: 'new' } });
+}
+
+async function listCommissions(env, user) {
+  const rows = user.is_admin
+    ? await env.DB.prepare('SELECT * FROM commission_requests ORDER BY created_at DESC').all()
+    : await env.DB.prepare('SELECT * FROM commission_requests WHERE agent = ? ORDER BY created_at DESC').bind(user.username).all();
+  return json({ ok: true, data: rows.results || [] });
+}
+
+async function updateCommission(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const id = String(body.id || '');
+  const status = String(body.status || '').trim();
+  if (!id || !status) return json({ error: 'missing_fields' }, 400);
+  await env.DB.prepare('UPDATE commission_requests SET status = ? WHERE id = ?').bind(status, id).run();
+  return json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
+//  Email notifications (Resend HTTP API — Workers cannot use raw SMTP)
+// ---------------------------------------------------------------------------
+const PORTAL_URL = 'https://abbassmokashar.github.io/agent-portal/';
+const WORKER_BASE = 'https://aus-agent-portal.a-mokashar.workers.dev';
+
+async function setNotificationPrefs(request, env, user) {
+  const body = await request.json().catch(() => ({}));
+  const enabled = !!body.notifyEmail;
+  let token = user.unsub_token || '';
+  if (enabled && !token) token = randomToken(20);
+  await env.DB.prepare(
+    'UPDATE users SET notify_email = ?, notified_asked = 1, unsub_token = ? WHERE username = ?'
+  ).bind(enabled ? 1 : 0, token || null, user.username).run();
+  return json({ ok: true, data: { notifyEmail: enabled, unsubToken: token } });
+}
+
+async function unsubscribe(env, url) {
+  const token = String(url.searchParams.get('token') || '');
+  const page = (title, message) =>
+    new Response(
+      `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>` +
+        '<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:80px auto;padding:24px;text-align:center;color:#111}'
+        + 'h1{font-size:20px}a{color:#b8860b}</style></head><body><h1>' + title + '</h1><p>' + message + '</p>'
+        + '<p><a href="' + PORTAL_URL + '">Back to the agent portal</a></p></body></html>',
+      { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
+  if (!token) return page('Invalid link', 'This unsubscribe link is missing its token.');
+  const found = await env.DB.prepare('SELECT username FROM users WHERE unsub_token = ?').bind(token).first();
+  if (!found) return page('Link expired', 'We could not match this unsubscribe link to an account.');
+  await env.DB.prepare('UPDATE users SET notify_email = 0 WHERE username = ?').bind(found.username).run();
+  return page('You are unsubscribed', 'You will no longer receive email notifications from the AUS agent portal.');
+}
+
+async function broadcastNotification(request, env, admin) {
+  const body = await request.json().catch(() => ({}));
+  const subject = String(body.subject || '').trim();
+  const message = String(body.message || '').trim();
+  if (!subject || !message) return json({ error: 'missing_fields' }, 400);
+
+  const rows = await env.DB.prepare(
+    "SELECT username, name, email, unsub_token FROM users WHERE status = 'active' AND notify_email = 1 AND is_admin = 0"
+  ).all();
+  const recipients = rows.results || [];
+  let sent = 0;
+  for (const r of recipients) {
+    const link = `${WORKER_BASE}/api/unsubscribe?token=${encodeURIComponent(r.unsub_token || '')}`;
+    const html =
+      `<p>Dear ${escapeHtml(r.name || r.username)},</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>` +
+      `<p style="color:#777;font-size:12px">You opted in to these updates. ` +
+      `<a href="${link}">Unsubscribe</a></p>`;
+    const out = await sendEmail(env, r.email, subject, html);
+    if (out.ok) sent += 1;
+  }
+  return json({ ok: true, data: { recipients: recipients.length, sent, emailConfigured: !!env.RESEND_API_KEY } });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // ---------------------------------------------------------------------------
@@ -1007,12 +1185,12 @@ const DEFAULT_CONTENT = {
       id: 'o1',
       active: true,
       badge: 'January 2027 intake',
-      title: 'CHF 1,000 commission bonus per new student',
+      title: "CHF 1'000 commission bonus per new student",
       subtitle: 'Celebrating our 50th Anniversary and building new agent relationships',
       body:
-        'For every new student you recruit for the January 2027 intake, you earn an extra CHF 1,000 commission bonus — on top of your standard commission. This offer is made for two reasons: to celebrate our 50th Anniversary, and to start building relationships with new agents through Jonathan Hilton.',
+        "For every new student you recruit for the January 2027 intake, you earn an extra CHF 1'000 commission bonus — on top of your standard commission. This offer is made for two reasons: to celebrate our 50th Anniversary, and to start building relationships with new agents through Jonathan Hilton.",
       bullets: [
-        'CHF 1,000 bonus for every new student recruited for the January 2027 intake',
+        "CHF 1'000 bonus for every new student recruited for the January 2027 intake",
         'Applies to new agents and existing partners',
         'Follow-up from Jonathan Hilton with direct links to this offer',
       ],
@@ -1025,7 +1203,7 @@ const DEFAULT_CONTENT = {
     {
       id: 'b1',
       title: 'AUS Global Brochure',
-      programme: 'All programmes',
+      programme: 'All specializations',
       region: 'Global',
       url: 'assets/brochures/AUS-Global-Brochure.pdf',
       size: '8.4 MB',
@@ -1059,30 +1237,30 @@ const DEFAULT_CONTENT = {
   ],
   programmes: [
     // ----- Bachelor's (3 years) -----
-    { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The language of business, mastered.' },
-    { id: 'p2', level: 'Bachelor', title: 'Business Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Lead organizations from day one.' },
-    { id: 'p3', level: 'Bachelor', title: 'Healthcare Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Healthcare needs better leaders.' },
-    { id: 'p4', level: 'Bachelor', title: 'Human Resource Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'People are the strategy.' },
-    { id: 'p5', level: 'Bachelor', title: 'Integrated & Digital Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Strategy meets execution.' },
-    { id: 'p6', level: 'Bachelor', title: 'International Business', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Think beyond borders.' },
-    { id: 'p7', level: 'Bachelor', title: 'Sports Management — Athletic Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Run the game, not the sidelines.' },
-    { id: 'p8', level: 'Bachelor', title: 'Sports Management — Sports Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'Build brands that move people.' },
-    { id: 'p9', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 30,000 / year', description: 'Excellence is the experience.' },
-    { id: 'p10', level: 'Bachelor', title: 'Aviation Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 28,000 / year', description: 'The business of getting there.' },
+    { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The language of business, mastered.' },
+    { id: 'p2', level: 'Bachelor', title: 'Business Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Lead organizations from day one.' },
+    { id: 'p3', level: 'Bachelor', title: 'Healthcare Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Healthcare needs better leaders.' },
+    { id: 'p4', level: 'Bachelor', title: 'Human Resource Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'People are the strategy.' },
+    { id: 'p5', level: 'Bachelor', title: 'Integrated & Digital Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Strategy meets execution.' },
+    { id: 'p6', level: 'Bachelor', title: 'International Business', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Think beyond borders.' },
+    { id: 'p7', level: 'Bachelor', title: 'Sports Management — Athletic Administration', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Run the game, not the sidelines.' },
+    { id: 'p8', level: 'Bachelor', title: 'Sports Management — Sports Marketing', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'Build brands that move people.' },
+    { id: 'p9', level: 'Bachelor', title: 'Hospitality Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 30'000 / year", description: 'Excellence is the experience.' },
+    { id: 'p10', level: 'Bachelor', title: 'Aviation Management', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The business of getting there.' },
     // ----- Master's (2 years) -----
-    { id: 'p11', level: 'Master', title: 'Finance', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Markets reward precision.' },
-    { id: 'p12', level: 'Master', title: 'Data Analytics', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Turn noise into signal.' },
-    { id: 'p13', level: 'Master', title: 'Healthcare Administration', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Systems that save lives.' },
-    { id: 'p14', level: 'Master', title: 'Human Resource Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Talent is the competitive edge.' },
-    { id: 'p15', level: 'Master', title: 'International Business', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Lead across markets.' },
-    { id: 'p16', level: 'Master', title: 'Leadership & Change', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Move organizations forward.' },
-    { id: 'p17', level: 'Master', title: 'Sports Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'The business behind the game.' },
-    { id: 'p18', level: 'Master', title: 'Strategic Brand & Digital Marketing', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Brand is the business model.' },
-    { id: 'p19', level: 'Master', title: 'Aviation Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · September', fees: 'CHF 25,000 / year', description: 'Altitude requires strategy.' },
+    { id: 'p11', level: 'Master', title: 'Finance', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Markets reward precision.' },
+    { id: 'p12', level: 'Master', title: 'Data Analytics', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Turn noise into signal.' },
+    { id: 'p13', level: 'Master', title: 'Healthcare Administration', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Systems that save lives.' },
+    { id: 'p14', level: 'Master', title: 'Human Resource Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Talent is the competitive edge.' },
+    { id: 'p15', level: 'Master', title: 'International Business', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Lead across markets.' },
+    { id: 'p16', level: 'Master', title: 'Leadership & Change', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Move organizations forward.' },
+    { id: 'p17', level: 'Master', title: 'Sports Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'The business behind the game.' },
+    { id: 'p18', level: 'Master', title: 'Strategic Brand & Digital Marketing', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Brand is the business model.' },
+    { id: 'p19', level: 'Master', title: 'Aviation Management', region: 'Switzerland', duration: '2 years', language: 'English', intakes: 'January · April · September', fees: "CHF 25'000 / year", description: 'Altitude requires strategy.' },
     // ----- Doctorate -----
-    { id: 'p20', level: 'Doctorate', title: 'Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · September', fees: 'CHF 26,000 / year', description: 'Original research that advances practice for experienced leaders.' },
+    { id: 'p20', level: 'Doctorate', title: 'Business Administration (DBA)', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 26'000 / year", description: 'Original research that advances practice for experienced leaders.' },
     // ----- Swiss Federal Diploma -----
-    { id: 'p21', level: 'Diploma', title: 'Swiss Federal Diploma — Business Administration', region: 'Switzerland', duration: '2 years (part-time)', language: 'English', intakes: 'September', fees: 'CHF 28,000 / year', description: 'The nationally recognized Swiss professional qualification, valued across European industries.' },
+    { id: 'p21', level: 'Diploma', title: 'Swiss Federal Diploma — Business Administration', region: 'Switzerland', duration: '2 years (part-time)', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The nationally recognized Swiss professional qualification, valued across European industries.' },
   ],
   regions: [
     { id: 'r1', name: 'Switzerland', blurb: 'Campus in Montreux on the Swiss Riviera. On-campus and blended delivery.' },

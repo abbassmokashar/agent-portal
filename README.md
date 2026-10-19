@@ -1,6 +1,6 @@
 # AUS Agent Portal
 
-A private portal for selected AUS Business School agents — **contracts, programme
+A private portal for selected AUS Business School agents — **contracts, specialization
 info, brochures, a media library, a facilitated application process, news and
 commission offers**, all in one place. It replaces the shared Google Drive folder.
 
@@ -33,12 +33,15 @@ creates each agent's credentials in the Admin view.
 - **Two-factor authentication (2FA)** — TOTP (Google Authenticator / Authy / 1Password)
 - **Admin agent management** — create / remove agents, reset passwords
 - **Dashboard** — active offer banner, latest news, quick links
-- **Offers** — e.g. the CHF 1,000 January 2027 commission bonus, linkable for newsletters/SMS
-- **Programmes** — levels, duration, language, intakes, fees, filterable
+- **Offers** — e.g. the CHF 1'000 January 2027 commission bonus, linkable for newsletters/SMS
+- **Specializations** — 21 programs with level, duration, language, intakes, fees, filterable
 - **Brochures** — downloadable, filterable by region; real PDFs included
-- **Contracts** — representation & enrolment templates
+- **Contracts** — global documents plus per-agent uploads (agent uploads are private)
 - **Media library** — photos, articles and marketing assets
-- **Applications** — agents submit student applications; admins track status
+- **Applications** — agents submit student applications; admins see all, agents see their own
+- **Commissions** — agents request commissions/invoices; finance tracks status
+- **Email notifications** — first-login opt-in with unsubscribe; transactional email via Resend
+- **Swiss details** — CHF formatting (`28'000`), January/April/September intakes derived from today's date, live Montreux clock and booking links
 - **Content manager** — admins upload and edit brochures, offers and images from
   the portal (no code, no JSON required)
 - **Backups (superadmin)** — an automatic daily snapshot to KV plus a snapshot
@@ -224,15 +227,21 @@ https://abbassmokashar.github.io/agent-portal/
 | `/api/2fa/setup` · `/enable` · `/disable` | POST | Manage TOTP 2FA |
 | `/api/forgot` · `/api/reset` | POST | Password reset by email (optional) |
 | `/api/content` | GET | Portal content (news, offers, resources…) |
-| `/api/files` | GET | List files (optionally `?category=`) |
-| `/api/files/:id` | GET | Download a gated file |
-| `/api/applications` | POST | Submit a student application |
-| `/api/admin/agents` | GET / POST / DELETE | Manage agents |
+| `/api/files` | GET | List visible files (global, own, or all for admins) |
+| `/api/files` | POST | Agent uploads a contract/document for their own account |
+| `/api/files/:id` | GET / DELETE | Download a permitted file / delete an own upload |
+| `/api/applications` | GET / POST | List own submissions / submit a student application |
+| `/api/commissions` | GET / POST | List own commission requests / create one |
+| `/api/notifications` | POST | Save email-notification preference |
+| `/api/unsubscribe?token=` | GET | Public unsubscribe link (no auth) |
+| `/api/admin/agents` | GET / POST / DELETE | Manage agents (incl. address fields) |
 | `/api/admin/agents/password` | POST | Reset an agent's password |
 | `/api/admin/content` | PUT | Save portal content (auto-snapshots the previous version) |
-| `/api/admin/files` | POST | Upload a gated file (brochures/offers/images) |
-| `/api/admin/files/:id` | PATCH / DELETE | Rename/re-categorise or delete a file |
-| `/api/admin/applications` | GET / PATCH | List / update applications |
+| `/api/admin/files` | POST | Upload a gated file (`assignedTo` = username or blank for all) |
+| `/api/admin/files/:id` | PATCH / DELETE | Rename/re-categorise/reassign or delete a file |
+| `/api/admin/applications` | GET / PATCH | List all / update applications |
+| `/api/admin/commissions` | GET / PATCH | List all / update commission requests |
+| `/api/admin/notify` | POST | Email opted-in agents (needs `RESEND_API_KEY`) |
 | `/api/admin/backups` | GET / POST / DELETE | List / create / delete backups (superadmin) |
 | `/api/admin/backups/:id` | GET | Download a backup as JSON (superadmin) |
 | `/api/admin/backups/restore` | POST | Restore a backup (superadmin) |
@@ -250,4 +259,4 @@ https://abbassmokashar.github.io/agent-portal/
 
 - Swap `assets/media/*.svg` for real photography.
 - Replace the sample PDFs in `assets/brochures/` (or upload via **Admin → Content → Upload**).
-- Update news, offers, programmes and contracts in **Admin → Edit content**.
+- Update news, offers, specializations and contracts in the Admin content manager.
