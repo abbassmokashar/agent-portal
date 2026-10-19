@@ -19,10 +19,25 @@
 const enc = new TextEncoder();
 const PBKDF2_ITERATIONS = 100000;
 const SESSION_TTL_DAYS = 30;
+const MIN_PASSWORD_LENGTH = 10;
+const MAX_PASSWORD_LENGTH = 256;
+const LOGIN_WINDOW_SEC = 900;
+const LOGIN_MAX_ATTEMPTS = 10;
+const TWOFA_MAX_ATTEMPTS = 5;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const BACKUP_PREFIX = 'backup:';
 const BACKUP_KEEP = 40; // how many backups to retain (newest kept)
+
+// Applied to every API response. The static site has its own headers in _headers.
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'DENY',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Cache-Control': 'no-store',
+};
 
 export default {
   // Automatic backup: runs on the schedule defined in wrangler.toml ([triggers]).
@@ -42,11 +57,14 @@ export default {
     try {
       res = await route(request, env, new URL(request.url));
     } catch (err) {
-      res = json({ error: 'server_error', detail: String((err && err.message) || err) }, 500);
+      // Never return internals to the browser.
+      console.error('Unhandled worker error:', (err && err.stack) || err);
+      res = json({ error: 'server_error' }, 500);
     }
 
     const headers = new Headers(res.headers);
     for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
     return new Response(res.body, { status: res.status, headers });
   },
 };
@@ -142,11 +160,12 @@ async function route(request, env, url) {
 function corsHeaders(env, origin) {
   const allowed = (env.ALLOWED_ORIGINS || '')
     .split(',')
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/\/+$/, ''))
     .filter(Boolean);
-  const allow = allowed.length === 0 ? '*' : allowed.includes(origin) ? origin : allowed[0];
+  // Deny by default: no wildcard, and never echo an origin that is not listed.
+  if (!origin || !allowed.includes(origin)) return { Vary: 'Origin' };
   return {
-    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -180,6 +199,14 @@ function randomToken(nbytes = 32) {
   const b = crypto.getRandomValues(new Uint8Array(nbytes));
   return bytesToB64(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', enc.encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+// Verified against for unknown users so login timing does not reveal accounts.
+const DUMMY_SALT_B64 = 'AAAAAAAAAAAAAAAAAAAAAA==';
 function timingSafeEqual(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -206,6 +233,16 @@ async function hashPassword(password) {
 async function verifyPassword(password, saltB64, expectedHash) {
   const hash = await derivePassword(password, b64ToBytes(saltB64));
   return timingSafeEqual(hash, expectedHash);
+}
+function passwordProblem(password, username = '') {
+  if (typeof password !== 'string') return 'weak_password';
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    return 'weak_password';
+  }
+  const lower = password.toLowerCase();
+  const name = String(username || '').toLowerCase();
+  if (name && lower.includes(name)) return 'weak_password';
+  return '';
 }
 
 // ---- TOTP (RFC 6238) ----
@@ -282,11 +319,55 @@ async function verifyTotp(secret, code, window = 1) {
 // ---------------------------------------------------------------------------
 const nowIso = () => new Date().toISOString();
 
+function clientIp(request) {
+  return (
+    (request.headers.get('CF-Connecting-IP') || '').trim() ||
+    (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() ||
+    'unknown'
+  );
+}
+
+// D1-backed fixed-window limiter. Keys are per action + IP (+ account where useful).
+async function rateLimit(env, key, limit, windowSec) {
+  const now = nowIso();
+  const resetAt = new Date(Date.now() + windowSec * 1000).toISOString();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO rate_limits (key, count, reset_at) VALUES (?, 1, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         count = CASE WHEN rate_limits.reset_at <= ? THEN 1 ELSE rate_limits.count + 1 END,
+         reset_at = CASE WHEN rate_limits.reset_at <= ? THEN excluded.reset_at ELSE rate_limits.reset_at END`
+    )
+      .bind(key, resetAt, now, now)
+      .run();
+    const row = await env.DB.prepare('SELECT count, reset_at FROM rate_limits WHERE key = ?')
+      .bind(key)
+      .first();
+    await env.DB.prepare('DELETE FROM rate_limits WHERE reset_at < ?').bind(now).run();
+    if (row && row.count > limit) {
+      return {
+        allowed: false,
+        retryAfter: Math.max(1, Math.ceil((new Date(row.reset_at).getTime() - Date.now()) / 1000)),
+      };
+    }
+    return { allowed: true, retryAfter: 0 };
+  } catch (err) {
+    // A limiter failure must not lock out every user.
+    console.error('rateLimit failed:', (err && err.message) || err);
+    return { allowed: true, retryAfter: 0 };
+  }
+}
+
+function tooMany(retryAfter) {
+  return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(retryAfter || 60) });
+}
+
 async function requireUser(request, env) {
   const auth = request.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token) return null;
-  const session = await env.DB.prepare('SELECT * FROM sessions WHERE token = ?').bind(token).first();
+  const tokenHash = await sha256Hex(token);
+  const session = await env.DB.prepare('SELECT * FROM sessions WHERE token = ?').bind(tokenHash).first();
   if (!session) return null;
   if (new Date(session.expires_at).getTime() < Date.now()) {
     await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
@@ -300,12 +381,14 @@ async function requireUser(request, env) {
 
 async function createSession(env, user, device) {
   const token = randomToken(32);
+  const tokenHash = await sha256Hex(token);
+  const tokenId = token.slice(0, 8);
   const created = nowIso();
   const expires = new Date(Date.now() + SESSION_TTL_DAYS * 86400000).toISOString();
   await env.DB.prepare(
-    'INSERT INTO sessions (token, user_id, device, created_at, last_seen, expires_at) VALUES (?,?,?,?,?,?)'
+    'INSERT INTO sessions (token, token_id, user_id, device, created_at, last_seen, expires_at) VALUES (?,?,?,?,?,?,?)'
   )
-    .bind(token, user.id, device || 'Unknown device', created, created, expires)
+    .bind(tokenHash, tokenId, user.id, device || 'Unknown device', created, created, expires)
     .run();
   await env.DB.prepare('UPDATE users SET last_login = ? WHERE id = ?').bind(created, user.id).run();
   return token;
@@ -350,7 +433,7 @@ async function bootstrapAdmin(request, env) {
   const username = String(body.username || '').trim().toLowerCase();
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
-  if (!username || password.length < 8) return json({ error: 'weak_input' }, 400);
+  if (!username || passwordProblem(password, username)) return json({ error: 'weak_input' }, 400);
 
   const { salt, hash } = await hashPassword(password);
   await env.DB.prepare(
@@ -370,8 +453,18 @@ async function login(request, env) {
   const device = String(body.device || 'Unknown device');
   if (!username || !password) return json({ error: 'missing_credentials' }, 400);
 
+  const ip = clientIp(request);
+  const ipLimit = await rateLimit(env, `login:ip:${ip}`, LOGIN_MAX_ATTEMPTS * 3, LOGIN_WINDOW_SEC);
+  if (!ipLimit.allowed) return tooMany(ipLimit.retryAfter);
+  const pairLimit = await rateLimit(env, `login:${ip}:${username}`, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SEC);
+  if (!pairLimit.allowed) return tooMany(pairLimit.retryAfter);
+
   const user = await env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
-  if (!user || user.status !== 'active') return json({ error: 'invalid_credentials' }, 401);
+  if (!user || user.status !== 'active') {
+    // Spend the same PBKDF2 work as a real verification to avoid timing leaks.
+    await derivePassword(password, b64ToBytes(DUMMY_SALT_B64)).catch(() => {});
+    return json({ error: 'invalid_credentials' }, 401);
+  }
 
   const ok = await verifyPassword(password, user.salt, user.pass_hash);
   if (!ok) return json({ error: 'invalid_credentials' }, 401);
@@ -394,17 +487,37 @@ async function twofaVerify(request, env) {
   const device = String(body.device || 'Unknown device');
   if (!challenge) return json({ error: 'missing_challenge' }, 400);
 
+  const ipLimit = await rateLimit(env, `2fa:ip:${clientIp(request)}`, 15, 600);
+  if (!ipLimit.allowed) return tooMany(ipLimit.retryAfter);
+
   const key = `2fa:${challenge}`;
+  const attemptsKey = `2fa:attempts:${challenge}`;
   const userId = await env.FILES.get(key);
   if (!userId) return json({ error: 'challenge_expired' }, 400);
+
+  const failures = Number((await env.FILES.get(attemptsKey)) || 0);
+  if (failures >= TWOFA_MAX_ATTEMPTS) {
+    await env.FILES.delete(key);
+    await env.FILES.delete(attemptsKey);
+    return json({ error: 'challenge_expired' }, 400);
+  }
 
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(Number(userId)).first();
   if (!user) return json({ error: 'invalid_credentials' }, 401);
 
+  const cleanCode = String(code).replace(/\D/g, '');
+  const usedKey = `2fa:used:${user.id}:${cleanCode}`;
+  if (await env.FILES.get(usedKey)) return json({ error: 'invalid_code' }, 401);
+
   const ok = await verifyTotp(user.totp_secret, code);
-  if (!ok) return json({ error: 'invalid_code' }, 401);
+  if (!ok) {
+    await env.FILES.put(attemptsKey, String(failures + 1), { expirationTtl: 600 });
+    return json({ error: 'invalid_code' }, 401);
+  }
 
   await env.FILES.delete(key);
+  await env.FILES.delete(attemptsKey);
+  await env.FILES.put(usedKey, '1', { expirationTtl: 120 });
   const session = await createSession(env, user, device);
   return json({ ok: true, token: session, user: publicUser(user) });
 }
@@ -416,7 +529,8 @@ function me(user) {
 async function logout(request, env, user) {
   const auth = request.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+  const tokenHash = await sha256Hex(token);
+  await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(tokenHash).run();
   return json({ ok: true });
 }
 
@@ -424,7 +538,7 @@ async function changePassword(request, env, user) {
   const body = await request.json().catch(() => ({}));
   const current = String(body.current || '');
   const next = String(body.next || '');
-  if (next.length < 8) return json({ error: 'weak_password' }, 400);
+  if (passwordProblem(next, user.username)) return json({ error: 'weak_password' }, 400);
   const ok = await verifyPassword(current, user.salt, user.pass_hash);
   if (!ok) return json({ error: 'invalid_current' }, 401);
   const { salt, hash } = await hashPassword(next);
@@ -439,12 +553,12 @@ async function changePassword(request, env, user) {
 
 async function listSessions(env, user) {
   const rows = await env.DB.prepare(
-    'SELECT token, device, created_at, last_seen, expires_at FROM sessions WHERE user_id = ? ORDER BY last_seen DESC'
+    'SELECT token_id, device, created_at, last_seen, expires_at FROM sessions WHERE user_id = ? ORDER BY last_seen DESC'
   )
     .bind(user.id)
     .all();
   const data = (rows.results || []).map((s) => ({
-    id: s.token.slice(0, 8),
+    id: s.token_id || '',
     device: s.device,
     created: s.created_at,
     lastSeen: s.last_seen,
@@ -456,8 +570,8 @@ async function listSessions(env, user) {
 async function revokeSession(request, env, user) {
   const body = await request.json().catch(() => ({}));
   const id = String(body.id || '');
-  const rows = await env.DB.prepare('SELECT token FROM sessions WHERE user_id = ?').bind(user.id).all();
-  const match = (rows.results || []).find((s) => s.token.slice(0, 8) === id);
+  const rows = await env.DB.prepare('SELECT token, token_id FROM sessions WHERE user_id = ?').bind(user.id).all();
+  const match = (rows.results || []).find((s) => s.token_id === id);
   if (!match) return json({ error: 'not_found' }, 404);
   await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(match.token).run();
   return json({ ok: true });
@@ -495,15 +609,28 @@ async function twofaDisable(request, env, user) {
 //  Forgot / reset password (optional, needs Resend)
 // ---------------------------------------------------------------------------
 async function forgotPassword(request, env) {
+  const ipLimit = await rateLimit(env, `forgot:ip:${clientIp(request)}`, 5, 900);
+  if (!ipLimit.allowed) return tooMany(ipLimit.retryAfter);
+
   const body = await request.json().catch(() => ({}));
   const email = String(body.email || '').trim().toLowerCase();
+
+  // Throttle per address without revealing whether it exists.
+  if (email) {
+    const emailLimit = await rateLimit(env, `forgot:email:${email}`, 3, 3600);
+    if (!emailLimit.allowed) return json({ ok: true });
+  }
+
   const user = email
     ? await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first()
     : null;
   if (user && env.RESEND_API_KEY) {
     const token = randomToken(24);
     await env.FILES.put(`reset:${token}`, String(user.id), { expirationTtl: 1800 });
-    const link = `${(env.ALLOWED_ORIGINS || '').split(',')[0].trim()}/#reset=${token}`;
+    const base = String(env.PORTAL_URL || (env.ALLOWED_ORIGINS || '').split(',')[0] || '')
+      .trim()
+      .replace(/\/+$/, '');
+    const link = `${base}/#reset=${token}`;
     await sendEmail(env, user.email, 'Reset your AUS Agent Portal password', resetEmailHtml(link));
   }
   // Always succeed to avoid account enumeration.
@@ -511,10 +638,13 @@ async function forgotPassword(request, env) {
 }
 
 async function resetPassword(request, env) {
+  const ipLimit = await rateLimit(env, `reset:ip:${clientIp(request)}`, 10, 900);
+  if (!ipLimit.allowed) return tooMany(ipLimit.retryAfter);
+
   const body = await request.json().catch(() => ({}));
   const token = String(body.token || '');
   const next = String(body.next || '');
-  if (next.length < 8) return json({ error: 'weak_password' }, 400);
+  if (passwordProblem(next)) return json({ error: 'weak_password' }, 400);
   const userId = await env.FILES.get(`reset:${token}`);
   if (!userId) return json({ error: 'invalid_token' }, 400);
   const { salt, hash } = await hashPassword(next);
@@ -593,7 +723,7 @@ async function createAgent(request, env, admin) {
   // Name, email, phone and country are mandatory.
   if (!name || !email || !phone || !country) return json({ error: 'missing_fields' }, 400);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'invalid_email' }, 400);
-  if (!username || password.length < 8) return json({ error: 'weak_input' }, 400);
+  if (!username || passwordProblem(password, username)) return json({ error: 'weak_input' }, 400);
 
   // Only a superadmin may create other administrators.
   const makeAdmin = !!body.isAdmin;
@@ -643,7 +773,7 @@ async function setAgentPassword(request, env, admin) {
   const body = await request.json().catch(() => ({}));
   const username = String(body.username || '').toLowerCase();
   const password = String(body.password || '');
-  if (!username || password.length < 8) return json({ error: 'weak_input' }, 400);
+  if (!username || passwordProblem(password, username)) return json({ error: 'weak_input' }, 400);
 
   const user = await env.DB.prepare('SELECT id, is_admin, is_superadmin FROM users WHERE username = ?').bind(username).first();
   if (!user) return json({ error: 'not_found' }, 404);

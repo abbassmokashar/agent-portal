@@ -30,12 +30,19 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS sessions (
   token      TEXT PRIMARY KEY,
+  token_id   TEXT,
   user_id    INTEGER NOT NULL,
   device     TEXT,
   created_at TEXT NOT NULL,
   last_seen  TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key      TEXT PRIMARY KEY,
+  count    INTEGER NOT NULL,
+  reset_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS content (
@@ -84,6 +91,8 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_token_id ON sessions(token_id);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_reset ON rate_limits(reset_at);
 CREATE INDEX IF NOT EXISTS idx_files_category ON files(category);
 CREATE INDEX IF NOT EXISTS idx_files_assigned ON files(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_apps_agent ON applications(agent);

@@ -175,7 +175,7 @@ supported, to avoid lock-outs).
 ### Agent account rules
 
 When adding an account, **full name, email, phone and country are required**, plus
-a username and an 8+ character password. Country is chosen from a searchable
+a username and a 10+ character password that does not contain the username. Country is chosen from a searchable
 dropdown.
 
 ### HubSpot application and scholarship forms
@@ -238,14 +238,76 @@ https://abbassmokashar.github.io/agent-portal/
 | `/api/admin/backups/:id` | GET | Download a backup as JSON (superadmin) |
 | `/api/admin/backups/restore` | POST | Restore a backup (superadmin) |
 
-## Security notes
+## Security
 
-- Passwords are salted and PBKDF2-hashed (100k iterations, SHA-256) on the worker —
-  never stored or sent in plain text.
-- 2FA secrets and sessions live server-side; session tokens expire after 30 days.
-- Gated files are streamed through the worker only for authenticated sessions.
-- **Demo mode is not secure** — it is a static preview for presentations only.
-  Always deploy the worker and use real accounts for actual agent access.
+### In the app and worker
+
+- Passwords are salted and PBKDF2-hashed (100k iterations, SHA-256). Minimum length is
+  10 characters and the password may not contain the username.
+- Session tokens are random 256-bit values. Only a **SHA-256 hash** is stored in D1, so a
+  database leak cannot be replayed as a live login. Tokens expire after 30 days; changing
+  a password revokes every session.
+- 2FA: TOTP with 5 attempts per challenge, single-use codes, and IP rate limiting.
+- Login, 2FA, forgot-password and reset endpoints are rate limited in D1
+  (`rate_limits` table). Login also spends the same PBKDF2 work for unknown users, so
+  response timing does not reveal which accounts exist.
+- CORS is **deny by default**: only exact origins listed in `ALLOWED_ORIGINS` receive an
+  `Access-Control-Allow-Origin` header. There is no `*` fallback.
+- Every API response sends `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a restrictive
+  `Permissions-Policy`, and HSTS. Errors return a generic `server_error` — no stack traces.
+- Gated files are streamed through the worker only for authenticated sessions; agent
+  uploads are private and admins see everything.
+- Privilege changes are superadmin-only; the superadmin account cannot be deleted or
+  edited by other admins.
+
+### Security headers for the static site (`_headers`)
+
+The repo ships a `_headers` file with a Content-Security-Policy, HSTS,
+`frame-ancestors 'none'`, nosniff and no-referrer. **Cloudflare Pages applies it
+automatically.** GitHub Pages ignores `_headers`; if you keep GitHub Pages behind
+Cloudflare, recreate the same headers with a Cloudflare **Response Header Transform
+Rule** (or move to Cloudflare Pages). Update the CSP `connect-src`/`script-src` entries
+when you add a new API hostname.
+
+### Hosting on an `aus.swiss` subdomain
+
+Recommended split:
+
+- `portal.aus.swiss` → static site (Cloudflare Pages, connected to this repo)
+- `api.aus.swiss` → this worker (Cloudflare custom domain)
+
+1. **Cloudflare Pages**: create a project from the repo, no build command, output
+   directory `/`. Add the custom domain `portal.aus.swiss`.
+2. **Worker custom domain**: add to `worker/wrangler.toml` and deploy:
+   ```toml
+   routes = [{ pattern = "api.aus.swiss", custom_domain = true }]
+   ```
+3. Update `js/config.js` → `WORKER_URL: 'https://api.aus.swiss'`.
+4. Set the worker vars/secrets:
+   ```toml
+   [vars]
+   ALLOWED_ORIGINS = "https://portal.aus.swiss"
+   PORTAL_URL = "https://portal.aus.swiss"
+   ```
+   Keep the GitHub Pages origin in `ALLOWED_ORIGINS` only during migration.
+5. In Cloudflare, enable **SSL/TLS → Full (strict)**, **Always Use HTTPS**, **HSTS**,
+   **Bot Fight Mode**, and a **WAF rate-limiting rule** for `/api/login` and
+   `/api/2fa/verify` as a second layer. Optionally enable managed WAF rules.
+6. Add a DNS TXT record for SPF/DKIM/DMARC on `aus.swiss` so portal email is not spoofed.
+7. After the first admin is created, delete the bootstrap secret:
+   `npx wrangler secret delete ADMIN_TOKEN` (it is useless once `/api/auth/bootstrap`
+   returns `already_initialized`).
+
+### Operational checklist
+
+- Change the superadmin password immediately if it is still the setup default.
+- Remove test/demo accounts before going live (`test`, etc.).
+- Do not commit `.dev.vars`, `.env`, API keys or reset links. The only secrets are
+  Cloudflare secrets (`ADMIN_TOKEN`, `RESEND_API_KEY`, `NOTIFY_EMAIL_FROM`).
+- Keep `robots.txt` disallowing indexing of the portal.
+- **Demo mode is not secure** — it is a static preview for presentations only. Always
+  deploy the worker and use real accounts for actual agent access.
 
 ## Replacing the placeholders
 

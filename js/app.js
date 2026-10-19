@@ -419,13 +419,14 @@ function friendlyError(e) {
     invalid_credentials: 'Incorrect username or password.',
     invalid_code: 'That code is not valid. Check your authenticator and try again.',
     challenge_expired: 'This login timed out. Please sign in again.',
-    weak_password: 'Password must be at least 8 characters.',
+    weak_password: 'Password must be at least 10 characters and must not contain your username.',
+    rate_limited: 'Too many attempts. Please wait a few minutes and try again.',
     invalid_current: 'Your current password is incorrect.',
     username_taken: 'That username already exists.',
     email_taken: 'That email is already registered.',
     invalid_email: 'Enter a valid email address.',
     missing_fields: 'Full name, email, phone and country are required.',
-    weak_input: 'Username and an 8+ character password are required.',
+    weak_input: 'Username and a 10+ character password are required.',
     forbidden: 'You do not have permission to do that.',
     protected: 'That account is protected and cannot be changed.',
     cannot_delete_self: 'You cannot remove your own account.',
@@ -1180,7 +1181,7 @@ function renderAccount(v) {
         <h3>Change password</h3>
         <p style="font-size:13px;margin-bottom:18px">Changing your password signs out your other devices.</p>
         <div class="field"><label>Current password</label><input id="cpCurrent" type="password" autocomplete="current-password"></div>
-        <div class="field"><label>New password</label><input id="cpNext" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+        <div class="field"><label>New password</label><input id="cpNext" type="password" autocomplete="new-password" placeholder="At least 10 characters"></div>
         <button class="btn btn-primary" onclick="changePassword()"><span>Update password</span></button>
       </div>
 
@@ -1438,7 +1439,7 @@ function newAgentPrompt() {
       <div class="field"><label>Postal code</label><input id="naPostal" placeholder="1000"></div>
       <div class="field"><label>Region / state</label><input id="naRegion" placeholder="Region"></div>
     </div>
-    <div class="field"><label>Temporary password <span class="req">*</span></label><input id="naPass" placeholder="At least 8 characters"></div>
+    <div class="field"><label>Temporary password <span class="req">*</span></label><input id="naPass" placeholder="At least 10 characters"></div>
     <div class="field">
       <label>Contracts &amp; documents</label>
       <input id="naFiles" type="file" accept=".pdf,application/pdf" multiple>
@@ -1472,7 +1473,7 @@ async function createAgent() {
   };
   if (!body.name || !body.email || !body.phone || !body.country) { toast('Full name, email, phone and country are required.', 'err'); return; }
   if (!known) { toast('Please choose the country from the list.', 'err'); return; }
-  if (!body.username || body.password.length < 8) { toast('A username and an 8+ character password are required.', 'err'); return; }
+  if (!body.username || body.password.length < 10) { toast('A username and a 10+ character password are required.', 'err'); return; }
   if (DEMO_MODE) { toast('Demo mode: accounts are not stored. Connect the worker.', 'info'); closeModal(); return; }
   try {
     await api('/api/admin/agents', { method: 'POST', body });
@@ -1498,7 +1499,7 @@ function resetAgentPrompt(username) {
   openModal(`
     <h2>Reset password</h2>
     <p class="modal-sub">Set a new password for <b>${esc(username)}</b>. They will be signed out of all devices.</p>
-    <div class="field"><label>New password</label><input id="raPass" placeholder="At least 8 characters"></div>
+    <div class="field"><label>New password</label><input id="raPass" placeholder="At least 10 characters"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="resetAgentPassword('${esc(username)}')"><span>Update password</span></button>
