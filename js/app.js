@@ -56,7 +56,7 @@ const DEMO_CONTENT = {
   ],
   contracts: [
     { id: 'c1', title: 'Agent Representation Agreement (template)', note: 'Standard representation agreement for new agent partners. Counter-signed by AUS.', url: 'assets/brochures/AUS-Global-Brochure.pdf', updated: '2026-10-01' },
-    { id: 'c2', title: 'Student Enrolment Contract (template)', note: 'Template enrolment contract to share with students before registration.', url: 'assets/brochures/AUS-Global-Brochure.pdf', updated: '2026-10-01' },
+    { id: 'c2', title: 'Student Enrollment Contract (template)', note: 'Template enrollment contract to share with students before registration.', url: 'assets/brochures/AUS-Global-Brochure.pdf', updated: '2026-10-01' },
   ],
   programmes: [
     { id: 'p1', level: 'Bachelor', title: 'Accounting', region: 'Switzerland', duration: '3 years', language: 'English', intakes: 'January · April · September', fees: "CHF 28'000 / year", description: 'The language of business, mastered.' },

@@ -1229,8 +1229,8 @@ const DEFAULT_CONTENT = {
     },
     {
       id: 'c2',
-      title: 'Student Enrolment Contract (template)',
-      note: 'Template enrolment contract to share with students before registration.',
+      title: 'Student Enrollment Contract (template)',
+      note: 'Template enrollment contract to share with students before registration.',
       url: 'assets/brochures/AUS-Global-Brochure.pdf',
       updated: '2026-10-01',
     },
